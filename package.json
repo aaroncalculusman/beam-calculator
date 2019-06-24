@@ -1,0 +1,24 @@
+{
+  "name": "beam-calculator",
+  "version": "0.0.1",
+  "description": "Tool to calculate beam deflections.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aaroncalculusman/beam-calculator.git"
+  },
+  "keywords": [
+    "beam",
+    "shear",
+    "deflection"
+  ],
+  "author": "Aaron Sayre",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aaroncalculusman/beam-calculator/issues"
+  },
+  "homepage": "https://github.com/aaroncalculusman/beam-calculator#readme"
+}

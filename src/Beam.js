@@ -1,23 +1,15 @@
 
-export class Beam {
+export default class Beam {
   
   constructor() {
     this._length = null
     this._moment = null
-    this._pointLoads = [] // Array of discrete loads 
+    this.pointLoads = [] // Array of discrete loads. (Note the absence of the _ in this assignment: this invokes the setter which creates a Proxy; see the setter below for more details.)
     this._contLoad = null // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
-    
-    // Proxy _pointLoads so we're notified if the user modifies it
-    const arrayHandler = {
-      set: (obj, prop, value) => {
-        console.log(obj, prop, value)
-        obj[prop] = value
-        this._isSolved = false
-      }
-    }
-    this._pointLoadsProxy = new Proxy(this._pointLoads, arrayHandler) 
+
+    // This will run the setter which will create the Proxy
 
   }
 
@@ -26,8 +18,8 @@ export class Beam {
   }
 
   set length(newLength) {
-    if (typeof newLength !== 'number') {
-      throw new TypeError('length must be a number')
+    if (typeof newLength !== 'number' || !(newLength > 0)) {
+      throw new TypeError('length must be a positive number')
     }
     this._length = newLength
     this._isSolved = false
@@ -38,8 +30,8 @@ export class Beam {
   }
 
   set moment(newMoment) {
-    if (typeof newMoment !== 'number' && typeof newMoment !== 'function') {
-      throw new TypeError('moment must be a number, or a function that returns the moment as a function of the distance from the left end of the beam')
+    if (newMoment < 0 || (typeof newMoment !== 'number' && typeof newMoment !== 'function')) {
+      throw new TypeError('moment must be a positive number or a function that returns the moment as a function of the distance from the left end of the beam')
     }
     this._moment = newMoment
     this._isSolved = false
@@ -50,7 +42,7 @@ export class Beam {
   }
 
   set contLoad(newContLoad) {
-    if (typeof newMoment !== 'function') {
+    if (typeof newContLoad !== 'function') {
       throw new TypeError('contLoad must be a function that returns the load density as a function of the distance from the left end of the beam')
     }
     this._contLoad = newContLoad
@@ -98,6 +90,17 @@ export class Beam {
       }
     }
     this._pointLoads = newPointLoads
+        
+    // Proxy _pointLoads so we're notified if the user modifies it
+    const arrayHandler = {
+      set: (target, property, value) => {
+        target[property] = value
+        this._isSolved = false
+        return Reflect.set(target, property, value)
+      }
+    }
+    this._pointLoadsProxy = new Proxy(this._pointLoads, arrayHandler) 
+
     this._isSolved = false
   }
 

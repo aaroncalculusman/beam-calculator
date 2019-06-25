@@ -4,7 +4,8 @@
   "description": "Tool to calculate beam deflections.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:src",
+    "test:src": "mocha --require esm 'test/**/*.test.js'"
   },
   "repository": {
     "type": "git",
@@ -20,5 +21,11 @@
   "bugs": {
     "url": "https://github.com/aaroncalculusman/beam-calculator/issues"
   },
-  "homepage": "https://github.com/aaroncalculusman/beam-calculator#readme"
+  "homepage": "https://github.com/aaroncalculusman/beam-calculator#readme",
+  "dependencies": {
+    "esm": "^3.2.25"
+  },
+  "devDependencies": {
+    "mocha": "^6.1.4"
+  }
 }

@@ -4,6 +4,7 @@ export default class Beam {
   constructor() {
     this._length = null
     this._moment = null
+    this._modulus = null
     this.pointLoads = [] // Array of discrete loads. (Note the absence of the _ in this assignment: this invokes the setter which creates a Proxy; see the setter below for more details.)
     this._contLoad = null // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
@@ -34,6 +35,18 @@ export default class Beam {
       throw new TypeError('moment must be a positive number or a function that returns the moment as a function of the distance from the left end of the beam')
     }
     this._moment = newMoment
+    this._isSolved = false
+  }
+
+  get modulus() {
+    return this._modulus
+  }
+
+  set modulus(newModulus) {
+    if (newModulus < 0 || typeof newModulus !== 'number') {
+      throw new TypeError('modulus must be a positive number')
+    }
+    this._modulus = newModulus
     this._isSolved = false
   }
 

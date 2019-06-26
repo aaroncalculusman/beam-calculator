@@ -7,6 +7,7 @@ describe('beam', () => {
       const b = new Beam()
       assert.strictEqual(b._length, null)
       assert.strictEqual(b._moment, null)
+      assert.strictEqual(b._modulus, null)
       assert.deepStrictEqual(b._pointLoads, [])
       assert.strictEqual(b._contLoad, null)
       assert.deepStrictEqual(b._anchor, ['simple', 'simple'])
@@ -64,6 +65,27 @@ describe('beam', () => {
       const b = new Beam()
       b._isSolved = true
       b.moment = 5
+      assert.strictEqual(b._isSolved, false)
+    })
+  })
+
+  describe('modulus', () => {
+    it('should get and set', () => {
+      const b = new Beam()
+      b.modulus = 40
+      assert.strictEqual(b.modulus, 40)
+    })
+
+    it('should throw if given the wrong type', () => {
+      const b = new Beam()
+      assert.throws(() => { b.modulus = 'forty' }, /TypeError: modulus must be/)
+      assert.throws(() => { b.modulus = -40 }, /TypeError: modulus must be/)
+    })
+
+    it('should reset _isSolved flag', () => {
+      const b = new Beam()
+      b._isSolved = true
+      b.modulus = 40
       assert.strictEqual(b._isSolved, false)
     })
   })

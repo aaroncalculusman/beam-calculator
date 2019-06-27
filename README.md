@@ -63,3 +63,5 @@ b.getSlope(10) // SI = m/m, US = in/in
 b.getDeflection(10) // SI = m, US = in
 
 ```
+
+When a point load is added to a `Beam`, it is frozen and cannot be mutated. If you need to change a point load, first remove it using `removePointLoad`, and then add a new point load.

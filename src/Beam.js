@@ -1,6 +1,6 @@
 
 export default class Beam {
-  
+
   constructor() {
     this._length = null
     this._moment = null
@@ -98,23 +98,39 @@ export default class Beam {
     }
     // Check to make sure each item in newPointLoads is acceptable
     for (let ptLoad of newPointLoads) {
-      if (!ptLoad || typeof ptLoad.x !== 'number' || typeof ptLoad.w !== 'number') {
+      if (!this._isValidPointLoad(ptLoad)) {
         throw new TypeError('Each item of pointLoads must be an object of type: { x: number, w: number }')
       }
     }
     this._pointLoads = newPointLoads
-        
+
     // Proxy _pointLoads so we're notified if the user modifies it
     const arrayHandler = {
       set: (target, property, value) => {
+        // console.log(`Setting property ${property} of ${JSON.stringify(target)} to ${JSON.stringify(value)}`)
+        if (/^\d+$/.test(property)) {
+          // Array indexing
+          if (!this._isValidPointLoad(value)) {
+            throw new TypeError('A point load must be an object of type: { x: number, w: number }')
+          }
+          Object.freeze(value)
+        }
         target[property] = value
         this._isSolved = false
         return Reflect.set(target, property, value)
       }
     }
-    this._pointLoadsProxy = new Proxy(this._pointLoads, arrayHandler) 
+    this._pointLoadsProxy = new Proxy(this._pointLoads, arrayHandler)
 
     this._isSolved = false
+  }
+
+  /**
+   * Tests whether the given object is a valid point load.
+   * @param {Object} obj The point load to test for validity
+   */
+  _isValidPointLoad(obj) {
+    return obj && typeof obj.x === 'number' && typeof obj.w === 'number'
   }
 
   /**
@@ -124,13 +140,18 @@ export default class Beam {
    * @returns {Object} The new point load that was added. 
    */
   addPointLoad(x, w) {
-    if (typeof x !== 'number') {
-      throw new TypeError('x must be a number')
+    let newPointLoad
+    if (typeof x === 'object') {
+      newPointLoad = x
+    } else if (typeof x === 'number' && typeof w === 'number') {
+      newPointLoad = {x, w}
     }
-    if (typeof w !== 'number') {
-      throw new TypeError('w must be a number')
+    
+    if (!this._isValidPointLoad(newPointLoad)) {
+      throw new TypeError('You must supply two numbers, or an object containing properties x and w which are both numbers')
     }
-    const newPointLoad = { x, w }
+
+    Object.freeze(newPointLoad)
     this._pointLoads.push(newPointLoad)
     this._isSolved = false
     return newPointLoad

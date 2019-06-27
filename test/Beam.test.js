@@ -181,13 +181,49 @@ describe('beam', () => {
       assert.strictEqual(b._isSolved, false)
     })
 
+    it('should throw if attempting to add an invalid pointLoad', () => {
+      let b = new Beam()
+      assert.throws(() => { b.pointLoads.push({ x: 'not a valid point load', w: 'definitely not' }) }, /A point load must be an object of type: \{ x: number, w: number \}/)
+
+      b = new Beam()
+      assert.throws(() => { b.pointLoads[1] = { x: 4 } }, /A point load must be an object of type: \{ x: number, w: number \}/)
+
+      b = new Beam()
+      let a
+      assert.throws(() => { b.pointLoads.push(a) }, /A point load must be an object of type: \{ x: number, w: number \}/)
+
+    })
+
+    it('should throw if attempting to mutate a pointLoad', () => {
+      const b = new Beam()
+      let a = { x: 4, w: 5 }
+      b.pointLoads.push(a)
+      assert.throws(() => { a.x = 6 }, /Cannot assign to read only property/)
+      assert.deepStrictEqual(b.pointLoads, [{ x: 4, w: 5 }])
+
+      a = b.addPointLoad({ x: 6, w: 8 })
+      assert.throws(() => { a.x = 10 }, /Cannot assign to read only property/)
+      assert.deepStrictEqual(b.pointLoads, [{ x: 4, w: 5 }, { x: 6, w: 8 }])
+
+      const b2 = new Beam()
+      a = { x: 20, w: 30 }
+      b2.addPointLoad(a)
+      assert.throws(() => { a.x = 25 }, /Cannot assign to read only property/)
+    })
+
   })
-  
+
   describe('addPointLoad', () => {
     it('should add a point load', () => {
       const b = new Beam()
-      b.addPointLoad(10, 20)
+      let a = b.addPointLoad(10, 20)
       assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }])
+      assert.deepStrictEqual(a, { x: 10, w: 20 })
+
+      a = b.addPointLoad({ x: 40, w: 50 })
+      assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }, { x: 40, w: 50 }])
+      assert.deepStrictEqual(a, { x: 40, w: 50 })
+
     })
 
     it('should reset _isSolved flag', () => {
@@ -222,7 +258,7 @@ describe('beam', () => {
       const p1 = b.addPointLoad(10, 20)
       const p2 = b.addPointLoad(15, 30)
       assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }, { x: 15, w: 30 }])
-      assert.throws(() => { b.removePointLoad({ x: 10, w: 20}) }, /Error: The given point load was not found. \(Point loads are matched by reference, not value.\)/)
+      assert.throws(() => { b.removePointLoad({ x: 10, w: 20 }) }, /Error: The given point load was not found. \(Point loads are matched by reference, not value.\)/)
       assert.doesNotThrow(() => { b.removePointLoad(p1) })
       assert.deepStrictEqual(b.pointLoads, [{ x: 15, w: 30 }])
       assert.throws(() => { b.removePointLoad(p1) }, /Error: The given point load was not found. \(Point loads are matched by reference, not value.\)/)

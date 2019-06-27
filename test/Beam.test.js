@@ -229,4 +229,12 @@ describe('beam', () => {
     })
   })
 
+  describe('solve', () => {
+    const b = new Beam()
+    b.length = 10
+    b.addPointLoad(3,400)
+    b.addPointLoad(1,100)
+    b.solve()
+  })
+
 })

@@ -10,8 +10,6 @@ export default class Beam {
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
 
-    // This will run the setter which will create the Proxy
-
   }
 
   get length() {
@@ -152,4 +150,30 @@ export default class Beam {
   }
 
 
+  solve() {
+
+    // Create a grid of points
+    const gridx = []
+
+    // Add evenly spaced points
+    const numGridPts = 5
+    for (let i = 0; i <= numGridPts; i++) {
+      gridx[i] = this._length * i / numGridPts
+    }
+
+    // Add points where point loads are located
+    for (let ptLoad of this._pointLoads) {
+      gridx.push(ptLoad.x)
+    }
+
+    // Sort gridx
+    gridx.sort((a, b) => {
+      if (a > b) return 1
+      else if (a < b) return -1
+      else return 0
+    })
+
+    console.log(gridx)
+
+  }
 }

@@ -1,7 +1,6 @@
 
 export default class Beam {
-
-  constructor() {
+  constructor () {
     this._length = null
     this._moment = null
     this._modulus = null
@@ -9,14 +8,13 @@ export default class Beam {
     this._contLoad = null // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
-
   }
 
-  get length() {
+  get length () {
     return this._length
   }
 
-  set length(newLength) {
+  set length (newLength) {
     if (typeof newLength !== 'number' || !(newLength > 0)) {
       throw new TypeError('length must be a positive number')
     }
@@ -24,11 +22,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get moment() {
+  get moment () {
     return this._moment
   }
 
-  set moment(newMoment) {
+  set moment (newMoment) {
     if (newMoment < 0 || (typeof newMoment !== 'number' && typeof newMoment !== 'function')) {
       throw new TypeError('moment must be a positive number or a function that returns the moment as a function of the distance from the left end of the beam')
     }
@@ -36,11 +34,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get modulus() {
+  get modulus () {
     return this._modulus
   }
 
-  set modulus(newModulus) {
+  set modulus (newModulus) {
     if (newModulus < 0 || typeof newModulus !== 'number') {
       throw new TypeError('modulus must be a positive number')
     }
@@ -48,11 +46,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get contLoad() {
+  get contLoad () {
     return this._contLoad
   }
 
-  set contLoad(newContLoad) {
+  set contLoad (newContLoad) {
     if (typeof newContLoad !== 'function') {
       throw new TypeError('contLoad must be a function that returns the load density as a function of the distance from the left end of the beam')
     }
@@ -60,11 +58,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get anchorLeft() {
+  get anchorLeft () {
     return this._anchor[0]
   }
 
-  set anchorLeft(newAnchorLeft) {
+  set anchorLeft (newAnchorLeft) {
     const allowed = ['simple', 'fixed', 'free']
     if (!allowed.includes(newAnchorLeft)) {
       throw new TypeError(`anchorLeft must be one of ${allowed.join(', ')}`)
@@ -73,11 +71,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get anchorRight() {
+  get anchorRight () {
     return this._anchor[1]
   }
 
-  set anchorRight(newAnchorRight) {
+  set anchorRight (newAnchorRight) {
     const allowed = ['simple', 'fixed', 'free']
     if (!allowed.includes(newAnchorRight)) {
       throw new TypeError(`anchorRight must be one of ${allowed.join(', ')}`)
@@ -86,11 +84,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get pointLoads() {
+  get pointLoads () {
     return this._pointLoadsProxy
   }
 
-  set pointLoads(newPointLoads) {
+  set pointLoads (newPointLoads) {
     if (!Array.isArray(newPointLoads)) {
       throw new TypeError('pointLoads must be an array')
     }
@@ -127,7 +125,7 @@ export default class Beam {
    * Tests whether the given object is a valid point load.
    * @param {Object} obj The point load to test for validity
    */
-  _isValidPointLoad(obj) {
+  _isValidPointLoad (obj) {
     return obj && typeof obj.x === 'number' && typeof obj.w === 'number'
   }
 
@@ -135,16 +133,16 @@ export default class Beam {
    * Adds a point load to the beam, and returns the new point load that was added.
    * @param {number} x The distance from the left end of the beam to add the point load.
    * @param {number} w The downward force of the point load.
-   * @returns {Object} The new point load that was added. 
+   * @returns {Object} The new point load that was added.
    */
-  addPointLoad(x, w) {
+  addPointLoad (x, w) {
     let newPointLoad
     if (typeof x === 'object') {
       newPointLoad = x
     } else if (typeof x === 'number' && typeof w === 'number') {
-      newPointLoad = {x, w}
+      newPointLoad = { x, w }
     }
-    
+
     if (!this._isValidPointLoad(newPointLoad)) {
       throw new TypeError('You must supply two numbers, or an object containing properties x and w which are both numbers')
     }
@@ -157,9 +155,9 @@ export default class Beam {
 
   /**
    * Removes a point load that was added using addPointLoad.
-   * @param {Object} pointLoad 
+   * @param {Object} pointLoad
    */
-  removePointLoad(pointLoad) {
+  removePointLoad (pointLoad) {
     const i = this._pointLoads.indexOf(pointLoad)
     if (i < 0) {
       // TODO: Should we return true/false indicating whether the point load was found, instead of throwing?
@@ -170,9 +168,7 @@ export default class Beam {
     return true
   }
 
-
-  solve() {
-
+  solve () {
     // Create a grid of points
     const gridx = []
 
@@ -193,8 +189,30 @@ export default class Beam {
       else if (a < b) return -1
       else return 0
     })
+//Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
+//Here are the next steps:
+//1-Determine the reaction forces at A (left side) and B (right side) of the beam.  Here is an example beam
+//        q/x                     2q
+//    _______________              |
+//    |  |  |  |  |  |             |
+//   _v__v__v__v__v__v_____________v______________
+//  ^                                             ^
+//  A                    x--->                    B
+//We take the sum of the moments about A to find the reaction force at B and then subtract the reaction force B from the sum of all of the forces to determine A
+//Shear has units of force lbf or N
+//2-Bending moment has units of lbf*ft or N*m is the integral of the shear with respect to X.  We calculate it using Simpson's rule
+//
+//
+    // Calculate shear
+    const shear = []
+    for (let i = 0; i < gridx.length - 1; i++) {
+      const a = gridx[i]
+      const b = gridx[i + 1]
+      const fa = this.contLoad(a) //reaction force at point A (left side) based on loads
+      const fa2 = this.contLoad((a + b) / 2)
+      const fb = this.contLoad(b)
 
-    console.log(gridx)
-
+      console.log(gridx)
+    }
   }
 }

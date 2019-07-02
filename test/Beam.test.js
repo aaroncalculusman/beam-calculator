@@ -262,6 +262,7 @@ describe('beam', () => {
     })
   })
 
+
   describe('_createGrid', () => {
     it('should create an evenly spaced grid', () => {
       const b = new Beam()

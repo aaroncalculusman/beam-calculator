@@ -168,6 +168,7 @@ export default class Beam {
     return true
   }
 
+
   /**
    * Creates an array of evenly spaced points, plus two points for each point load, which are used to solve the beam deflection problem.
    * @param {number} numGridPts The number of evenly spaced intervals to create. The actual number of grid points is one more than this number (endpoints are included). Two additional grid points are also created for every point load.
@@ -177,6 +178,7 @@ export default class Beam {
     if (typeof numGridPts !== 'number' || !(numGridPts > 0) || Math.round(numGridPts) !== numGridPts) {
       throw new TypeError('numGridPts must be a positive integer.')
     }
+
 
     // Create a grid of points
     const grid = []
@@ -233,11 +235,37 @@ export default class Beam {
       else return 0
     })
 
+
     return grid
   }
 
   solve () {
     let grid = this._createGrid(5)
     console.log(grid)
+//Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
+//Here are the next steps:
+//1-Determine the reaction forces at A (left side) and B (right side) of the beam.  Here is an example beam
+//        q/x                     2q
+//    _______________              |
+//    |  |  |  |  |  |             |
+//   _v__v__v__v__v__v_____________v______________
+//  ^                                             ^
+//  A                    x--->                    B
+//We take the sum of the moments about A to find the reaction force at B and then subtract the reaction force B from the sum of all of the forces to determine A
+//Shear has units of force lbf or N
+//2-Bending moment has units of lbf*ft or N*m is the integral of the shear with respect to X.  We calculate it using Simpson's rule
+//
+//
+    // Calculate shear
+    const shear = []
+    for (let i = 0; i < gridx.length - 1; i++) {
+      const a = gridx[i]
+      const b = gridx[i + 1]
+      const fa = this.contLoad(a) //reaction force at point A (left side) based on loads
+      const fa2 = this.contLoad((a + b) / 2)
+      const fb = this.contLoad(b)
+
+      console.log(gridx)
+    }
   }
 }

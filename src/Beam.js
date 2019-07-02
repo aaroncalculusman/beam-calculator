@@ -1,7 +1,6 @@
 
 export default class Beam {
-
-  constructor() {
+  constructor () {
     this._length = null
     this._moment = null
     this._modulus = null
@@ -9,14 +8,13 @@ export default class Beam {
     this._contLoad = null // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
-
   }
 
-  get length() {
+  get length () {
     return this._length
   }
 
-  set length(newLength) {
+  set length (newLength) {
     if (typeof newLength !== 'number' || !(newLength > 0)) {
       throw new TypeError('length must be a positive number')
     }
@@ -24,11 +22,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get moment() {
+  get moment () {
     return this._moment
   }
 
-  set moment(newMoment) {
+  set moment (newMoment) {
     if (newMoment < 0 || (typeof newMoment !== 'number' && typeof newMoment !== 'function')) {
       throw new TypeError('moment must be a positive number or a function that returns the moment as a function of the distance from the left end of the beam')
     }
@@ -36,11 +34,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get modulus() {
+  get modulus () {
     return this._modulus
   }
 
-  set modulus(newModulus) {
+  set modulus (newModulus) {
     if (newModulus < 0 || typeof newModulus !== 'number') {
       throw new TypeError('modulus must be a positive number')
     }
@@ -48,11 +46,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get contLoad() {
+  get contLoad () {
     return this._contLoad
   }
 
-  set contLoad(newContLoad) {
+  set contLoad (newContLoad) {
     if (typeof newContLoad !== 'function') {
       throw new TypeError('contLoad must be a function that returns the load density as a function of the distance from the left end of the beam')
     }
@@ -60,11 +58,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get anchorLeft() {
+  get anchorLeft () {
     return this._anchor[0]
   }
 
-  set anchorLeft(newAnchorLeft) {
+  set anchorLeft (newAnchorLeft) {
     const allowed = ['simple', 'fixed', 'free']
     if (!allowed.includes(newAnchorLeft)) {
       throw new TypeError(`anchorLeft must be one of ${allowed.join(', ')}`)
@@ -73,11 +71,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get anchorRight() {
+  get anchorRight () {
     return this._anchor[1]
   }
 
-  set anchorRight(newAnchorRight) {
+  set anchorRight (newAnchorRight) {
     const allowed = ['simple', 'fixed', 'free']
     if (!allowed.includes(newAnchorRight)) {
       throw new TypeError(`anchorRight must be one of ${allowed.join(', ')}`)
@@ -86,11 +84,11 @@ export default class Beam {
     this._isSolved = false
   }
 
-  get pointLoads() {
+  get pointLoads () {
     return this._pointLoadsProxy
   }
 
-  set pointLoads(newPointLoads) {
+  set pointLoads (newPointLoads) {
     if (!Array.isArray(newPointLoads)) {
       throw new TypeError('pointLoads must be an array')
     }
@@ -127,7 +125,7 @@ export default class Beam {
    * Tests whether the given object is a valid point load.
    * @param {Object} obj The point load to test for validity
    */
-  _isValidPointLoad(obj) {
+  _isValidPointLoad (obj) {
     return obj && typeof obj.x === 'number' && typeof obj.w === 'number'
   }
 
@@ -135,16 +133,16 @@ export default class Beam {
    * Adds a point load to the beam, and returns the new point load that was added.
    * @param {number} x The distance from the left end of the beam to add the point load.
    * @param {number} w The downward force of the point load.
-   * @returns {Object} The new point load that was added. 
+   * @returns {Object} The new point load that was added.
    */
-  addPointLoad(x, w) {
+  addPointLoad (x, w) {
     let newPointLoad
     if (typeof x === 'object') {
       newPointLoad = x
     } else if (typeof x === 'number' && typeof w === 'number') {
-      newPointLoad = {x, w}
+      newPointLoad = { x, w }
     }
-    
+
     if (!this._isValidPointLoad(newPointLoad)) {
       throw new TypeError('You must supply two numbers, or an object containing properties x and w which are both numbers')
     }
@@ -157,9 +155,9 @@ export default class Beam {
 
   /**
    * Removes a point load that was added using addPointLoad.
-   * @param {Object} pointLoad 
+   * @param {Object} pointLoad
    */
-  removePointLoad(pointLoad) {
+  removePointLoad (pointLoad) {
     const i = this._pointLoads.indexOf(pointLoad)
     if (i < 0) {
       // TODO: Should we return true/false indicating whether the point load was found, instead of throwing?
@@ -170,31 +168,76 @@ export default class Beam {
     return true
   }
 
-
-  solve() {
+  /**
+   * Creates an array of evenly spaced points, plus two points for each point load, which are used to solve the beam deflection problem.
+   * @param {number} numGridPts The number of evenly spaced intervals to create. The actual number of grid points is one more than this number (endpoints are included). Two additional grid points are also created for every point load.
+   * @returns {Array} An array of grid points sorted by x-coordinate.
+   */
+  _createGrid (numGridPts) {
+    if (typeof numGridPts !== 'number' || !(numGridPts > 0) || Math.round(numGridPts) !== numGridPts) {
+      throw new TypeError('numGridPts must be a positive integer.')
+    }
 
     // Create a grid of points
-    const gridx = []
+    const grid = []
 
     // Add evenly spaced points
-    const numGridPts = 5
     for (let i = 0; i <= numGridPts; i++) {
-      gridx[i] = this._length * i / numGridPts
+      grid[i] = {
+        x: this._length * i / numGridPts
+      }
     }
 
-    // Add points where point loads are located
+    // Add two grid points for each point load
     for (let ptLoad of this._pointLoads) {
-      gridx.push(ptLoad.x)
+      // NOTE: The conditional statements in this block make exact comparisons between floating-point numbers. This is intended.
+
+      // Check for ptLoads that exist at an existing grid location
+      let dupeGridPointIndex = grid.findIndex(pt => pt.x === ptLoad.x && !pt.isPointLoad)
+      if (dupeGridPointIndex >= 0) {
+        // Remove the existing grid point
+        grid.splice(dupeGridPointIndex, 1)
+      }
+
+      // Check for duplicate ptLoads
+      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === -1)
+      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === 1)
+      if (dupePointLoadIndex1 >= 0 && dupePointLoadIndex2 >= 0) {
+        // Instead of adding new grid points, just add this point load to the existing ones
+        grid[dupePointLoadIndex1].pointLoad += ptLoad.w
+        grid[dupePointLoadIndex2].pointLoad += ptLoad.w
+      } else {
+        // Add two new grid points for this point load
+        grid.push({
+          x: ptLoad.x,
+          pointLoad: ptLoad.w,
+          isPointLoad: true,
+          relationToPointLoad: -1
+        })
+        grid.push({
+          x: ptLoad.x,
+          pointLoad: ptLoad.w,
+          isPointLoad: true,
+          relationToPointLoad: 1
+        })
+      }
     }
 
-    // Sort gridx
-    gridx.sort((a, b) => {
-      if (a > b) return 1
-      else if (a < b) return -1
+    // Sort grid first by x-coordinate, then by relationToPointLoad
+    // TODO: Use binary search insertion in the for..of loop above to improve performance
+    grid.sort((a, b) => {
+      if (a.x > b.x) return 1
+      else if (a.x < b.x) return -1
+      else if (a.relationToPointLoad > b.relationToPointLoad) return 1
+      else if (a.relationToPointLoad < b.relationToPointLoad) return -1
       else return 0
     })
 
-    console.log(gridx)
+    return grid
+  }
 
+  solve () {
+    let grid = this._createGrid(5)
+    console.log(grid)
   }
 }

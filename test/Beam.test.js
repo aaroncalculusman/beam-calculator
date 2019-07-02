@@ -191,7 +191,6 @@ describe('beam', () => {
       b = new Beam()
       let a
       assert.throws(() => { b.pointLoads.push(a) }, /A point load must be an object of type: \{ x: number, w: number \}/)
-
     })
 
     it('should throw if attempting to mutate a pointLoad', () => {
@@ -210,7 +209,6 @@ describe('beam', () => {
       b2.addPointLoad(a)
       assert.throws(() => { a.x = 25 }, /Cannot assign to read only property/)
     })
-
   })
 
   describe('addPointLoad', () => {
@@ -223,7 +221,6 @@ describe('beam', () => {
       a = b.addPointLoad({ x: 40, w: 50 })
       assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }, { x: 40, w: 50 }])
       assert.deepStrictEqual(a, { x: 40, w: 50 })
-
     })
 
     it('should reset _isSolved flag', () => {
@@ -265,12 +262,138 @@ describe('beam', () => {
     })
   })
 
-  describe('solve', () => {
-    const b = new Beam()
-    b.length = 10
-    b.addPointLoad(3,400)
-    b.addPointLoad(1,100)
-    b.solve()
+  describe('_createGrid', () => {
+    it('should create an evenly spaced grid', () => {
+      const b = new Beam()
+      b.length = 10
+
+      let grid = b._createGrid(5)
+      assert.deepStrictEqual(grid, [{ x: 0 }, { x: 2 }, { x: 4 }, { x: 6 }, { x: 8 }, { x: 10 }])
+
+      grid = b._createGrid(1)
+      assert.deepStrictEqual(grid, [{ x: 0 }, { x: 10 }])
+    })
+
+    it('should add point loads to the grid and sort them', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(5, 10)
+      b.addPointLoad(8.5, 10)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        { x: 4 },
+        {
+          x: 5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        {
+          x: 8.5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 8.5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        { x: 10 }
+      ])
+    })
+
+    it('should replace an existing grid point if a point load falls on the grid', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(4, 10)
+      b.addPointLoad(6, 10)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        {
+          x: 6,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 6,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should combine duplicate point loads', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(4, 10)
+      b.addPointLoad(4, 10)
+      b.addPointLoad(4, 10)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 30,
+          relationToPointLoad: -1
+        },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 30,
+          relationToPointLoad: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should throw if numGridPts is not a positive integer', () => {
+      const b = new Beam()
+      b.length = 10
+      assert.throws(() => { b._createGrid() }, /TypeError: numGridPts must be a positive integer./)
+      assert.throws(() => { b._createGrid('five') }, /TypeError: numGridPts must be a positive integer./)
+      assert.throws(() => { b._createGrid(-3) }, /TypeError: numGridPts must be a positive integer./)
+      assert.throws(() => { b._createGrid(10.2) }, /TypeError: numGridPts must be a positive integer./)
+    })
   })
 
+  describe('solve', () => {
+    
+  })
 })

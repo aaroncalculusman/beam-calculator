@@ -262,11 +262,139 @@ describe('beam', () => {
     })
   })
 
+
+  describe('_createGrid', () => {
+    it('should create an evenly spaced grid', () => {
+      const b = new Beam()
+      b.length = 10
+
+      let grid = b._createGrid(5)
+      assert.deepStrictEqual(grid, [{ x: 0 }, { x: 2 }, { x: 4 }, { x: 6 }, { x: 8 }, { x: 10 }])
+
+      grid = b._createGrid(1)
+      assert.deepStrictEqual(grid, [{ x: 0 }, { x: 10 }])
+    })
+
+    it('should add point loads to the grid and sort them', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(5, 10)
+      b.addPointLoad(8.5, 10)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        { x: 4 },
+        {
+          x: 5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        {
+          x: 8.5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 8.5,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        { x: 10 }
+      ])
+    })
+
+    it('should replace an existing grid point if a point load falls on the grid', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(4, 10)
+      b.addPointLoad(6, 10)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        {
+          x: 6,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: -1
+        },
+        {
+          x: 6,
+          isPointLoad: true,
+          pointLoad: 10,
+          relationToPointLoad: 1
+        },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should combine duplicate point loads', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(4, 10)
+      b.addPointLoad(4, 10)
+      b.addPointLoad(4, 10)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 30,
+          relationToPointLoad: -1
+        },
+        {
+          x: 4,
+          isPointLoad: true,
+          pointLoad: 30,
+          relationToPointLoad: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should throw if numGridPts is not a positive integer', () => {
+      const b = new Beam()
+      b.length = 10
+      assert.throws(() => { b._createGrid() }, /TypeError: numGridPts must be a positive integer./)
+      assert.throws(() => { b._createGrid('five') }, /TypeError: numGridPts must be a positive integer./)
+      assert.throws(() => { b._createGrid(-3) }, /TypeError: numGridPts must be a positive integer./)
+      assert.throws(() => { b._createGrid(10.2) }, /TypeError: numGridPts must be a positive integer./)
+    })
+  })
+
   describe('solve', () => {
-    const b = new Beam()
-    b.length = 10
-    b.addPointLoad(3, 400)
-    b.addPointLoad(1, 100)
-    b.solve()
+    
   })
 })

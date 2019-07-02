@@ -168,27 +168,80 @@ export default class Beam {
     return true
   }
 
-  solve () {
+
+  /**
+   * Creates an array of evenly spaced points, plus two points for each point load, which are used to solve the beam deflection problem.
+   * @param {number} numGridPts The number of evenly spaced intervals to create. The actual number of grid points is one more than this number (endpoints are included). Two additional grid points are also created for every point load.
+   * @returns {Array} An array of grid points sorted by x-coordinate.
+   */
+  _createGrid (numGridPts) {
+    if (typeof numGridPts !== 'number' || !(numGridPts > 0) || Math.round(numGridPts) !== numGridPts) {
+      throw new TypeError('numGridPts must be a positive integer.')
+    }
+
+
     // Create a grid of points
-    const gridx = []
+    const grid = []
 
     // Add evenly spaced points
-    const numGridPts = 5
     for (let i = 0; i <= numGridPts; i++) {
-      gridx[i] = this._length * i / numGridPts
+      grid[i] = {
+        x: this._length * i / numGridPts
+      }
     }
 
-    // Add points where point loads are located
+    // Add two grid points for each point load
     for (let ptLoad of this._pointLoads) {
-      gridx.push(ptLoad.x)
+      // NOTE: The conditional statements in this block make exact comparisons between floating-point numbers. This is intended.
+
+      // Check for ptLoads that exist at an existing grid location
+      let dupeGridPointIndex = grid.findIndex(pt => pt.x === ptLoad.x && !pt.isPointLoad)
+      if (dupeGridPointIndex >= 0) {
+        // Remove the existing grid point
+        grid.splice(dupeGridPointIndex, 1)
+      }
+
+      // Check for duplicate ptLoads
+      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === -1)
+      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === 1)
+      if (dupePointLoadIndex1 >= 0 && dupePointLoadIndex2 >= 0) {
+        // Instead of adding new grid points, just add this point load to the existing ones
+        grid[dupePointLoadIndex1].pointLoad += ptLoad.w
+        grid[dupePointLoadIndex2].pointLoad += ptLoad.w
+      } else {
+        // Add two new grid points for this point load
+        grid.push({
+          x: ptLoad.x,
+          pointLoad: ptLoad.w,
+          isPointLoad: true,
+          relationToPointLoad: -1
+        })
+        grid.push({
+          x: ptLoad.x,
+          pointLoad: ptLoad.w,
+          isPointLoad: true,
+          relationToPointLoad: 1
+        })
+      }
     }
 
-    // Sort gridx
-    gridx.sort((a, b) => {
-      if (a > b) return 1
-      else if (a < b) return -1
+    // Sort grid first by x-coordinate, then by relationToPointLoad
+    // TODO: Use binary search insertion in the for..of loop above to improve performance
+    grid.sort((a, b) => {
+      if (a.x > b.x) return 1
+      else if (a.x < b.x) return -1
+      else if (a.relationToPointLoad > b.relationToPointLoad) return 1
+      else if (a.relationToPointLoad < b.relationToPointLoad) return -1
       else return 0
     })
+
+
+    return grid
+  }
+
+  solve () {
+    let grid = this._createGrid(5)
+    console.log(grid)
 //Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
 //Here are the next steps:
 //1-Determine the reaction forces at A (left side) and B (right side) of the beam.  Here is an example beam

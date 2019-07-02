@@ -191,7 +191,6 @@ describe('beam', () => {
       b = new Beam()
       let a
       assert.throws(() => { b.pointLoads.push(a) }, /A point load must be an object of type: \{ x: number, w: number \}/)
-
     })
 
     it('should throw if attempting to mutate a pointLoad', () => {
@@ -210,7 +209,6 @@ describe('beam', () => {
       b2.addPointLoad(a)
       assert.throws(() => { a.x = 25 }, /Cannot assign to read only property/)
     })
-
   })
 
   describe('addPointLoad', () => {
@@ -223,7 +221,6 @@ describe('beam', () => {
       a = b.addPointLoad({ x: 40, w: 50 })
       assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }, { x: 40, w: 50 }])
       assert.deepStrictEqual(a, { x: 40, w: 50 })
-
     })
 
     it('should reset _isSolved flag', () => {
@@ -268,9 +265,8 @@ describe('beam', () => {
   describe('solve', () => {
     const b = new Beam()
     b.length = 10
-    b.addPointLoad(3,400)
-    b.addPointLoad(1,100)
+    b.addPointLoad(3, 400)
+    b.addPointLoad(1, 100)
     b.solve()
   })
-
 })

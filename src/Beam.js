@@ -8,6 +8,7 @@ export default class Beam {
     this._contLoad = null // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
+    this.pins=[] //pins and rollers are the same for this thing
   }
 
   get length () {
@@ -121,6 +122,7 @@ export default class Beam {
     this._isSolved = false
   }
 
+
   /**
    * Tests whether the given object is a valid point load.
    * @param {Object} obj The point load to test for validity
@@ -168,6 +170,50 @@ export default class Beam {
     return true
   }
 
+  get pins () {
+    return this._pinsProxy
+  }
+
+  set pins (newPins) {
+    if (!Array.isArray(newPins)) {
+      throw new TypeError('pins must be an array')
+    }
+    // Check to make sure each item in newPins is acceptable
+    for (let pin of newPins) {
+      if (!this._isValidPin(pin)) {
+        throw new TypeError('Each item of pins must be an object of type: { x: number, w: number }')
+      }
+    }
+    this._pins = newPins
+
+    // Proxy _pins so we're notified if the user modifies it
+    const arrayHandler = {
+      set: (target, property, value) => {
+        // console.log(`Setting property ${property} of ${JSON.stringify(target)} to ${JSON.stringify(value)}`)
+        if (/^\d+$/.test(property)) {
+          // Array indexing
+          if (!this._isValidPin(value)) {
+            throw new TypeError('A pin must be an object of type: { x: number, w: number }')
+          }
+          Object.freeze(value)
+        }
+        target[property] = value
+        this._isSolved = false
+        return Reflect.set(target, property, value)
+      }
+    }
+    this._pinsProxy = new Proxy(this._pins, arrayHandler)
+
+    this._isSolved = false
+  }
+
+  /**
+   * Tests whether the given object is a valid pin.
+   * @param {Object} obj The pin to test for validity
+   */
+  _isValidPin (obj) {
+    return obj && typeof obj.x === 'number'
+  }
 
   /**
    * Creates an array of evenly spaced points, plus two points for each point load, which are used to solve the beam deflection problem.
@@ -188,6 +234,9 @@ export default class Beam {
       grid[i] = {
         x: this._length * i / numGridPts
       }
+
+      //grid[i] = { }
+      //grid[i].x = this._length * i / numGridPts
     }
 
     // Add two grid points for each point load
@@ -257,10 +306,9 @@ export default class Beam {
 //
 //
     // Calculate shear
-    const shear = []
-    for (let i = 0; i < gridx.length - 1; i++) {
-      const a = gridx[i]
-      const b = gridx[i + 1]
+   for (let i = 0; i < grid.length - 1; i++) {
+      const a = grid[i].x
+      const b = grid[i + 1].x
       const fa = this.contLoad(a) //reaction force at point A (left side) based on loads
       const fa2 = this.contLoad((a + b) / 2)
       const fb = this.contLoad(b)

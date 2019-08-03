@@ -23,12 +23,13 @@ b.length = 20 // SI = meters, US = inch
 // Set a constant second moment of area
 b.moment = 100 // SI = meter^4, US = inch^4
 
+// (Not yet supported)
 // Alternatively, set a variable second moment of
 // area (tapered beam) by assigning a function to 
 // moment. The function accepts a value which is the
 // distance from the left end of the beam, and 
 // returns the second moment of area at that point.
-b.moment = Function
+b.moment = someFunction // (Not yet supported: will throw an error)
 
 // Set the beam's Young's modulus
 b.modulus = 40 // SI = Pa, US = psi

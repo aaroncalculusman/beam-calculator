@@ -31,6 +31,9 @@ export default class Beam {
     if (newMoment < 0 || (typeof newMoment !== 'number' && typeof newMoment !== 'function')) {
       throw new TypeError('moment must be a positive number or a function that returns the moment as a function of the distance from the left end of the beam')
     }
+    if (typeof newMoment === 'function') {
+      throw new TypeError('Support for moment as a function is not available yet but is planned for the future.')
+    }
     this._moment = newMoment
     this._isSolved = false
   }
@@ -181,7 +184,7 @@ export default class Beam {
     // Check to make sure each item in newPins is acceptable
     for (let pin of newPins) {
       if (!this._isValidPin(pin)) {
-        throw new TypeError('Each item of pins must be an object of type: { x: number, w: number }')
+        throw new TypeError('Each item of pins must be an object of type: { x: number }')
       }
     }
     this._pins = newPins
@@ -193,7 +196,7 @@ export default class Beam {
         if (/^\d+$/.test(property)) {
           // Array indexing
           if (!this._isValidPin(value)) {
-            throw new TypeError('A pin must be an object of type: { x: number, w: number }')
+            throw new TypeError('A pin must be an object of type: { x: number }')
           }
           Object.freeze(value)
         }
@@ -213,6 +216,44 @@ export default class Beam {
    */
   _isValidPin (obj) {
     return obj && typeof obj.x === 'number'
+  }
+
+  /**
+   * Adds a pin to the beam, and returns the pin that was added.
+   * @param {number} x The distance from the left end of the beam to add the point load.
+   * @returns {Object} The new pin that was added.
+   */
+  addPin (x, w) {
+    let newPin
+    if (typeof x === 'object') {
+      newPin = x
+    } else if (typeof x === 'number') {
+      newPin = { x }
+    }
+
+    if (!this._isValidPin(newPin)) {
+      throw new TypeError('You must supply a number, or an object containing a single property x which is a number')
+    }
+
+    Object.freeze(newPin)
+    this._pins.push(newPin)
+    this._isSolved = false
+    return newPin
+  }
+
+  /**
+   * Removes a pin that was added using addPin.
+   * @param {Object} pin
+   */
+  removePin (pin) {
+    const i = this._pins.indexOf(pin)
+    if (i < 0) {
+      // TODO: Should we return true/false indicating whether the pin was found, instead of throwing?
+      throw new Error('The given pin was not found. (Pins are matched by reference, not value.)')
+    }
+    this._pins.splice(i, 1)
+    this._isSolved = false
+    return true
   }
 
   /**
@@ -289,22 +330,132 @@ export default class Beam {
   }
 
   solve () {
+
+    // TODO: For any anchors which are "simple", add a pin to that location before solving (but don't change this.pins, we want that to stay the same)
+
+
     let grid = this._createGrid(5)
     console.log(grid)
-//Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
-//Here are the next steps:
-//1-Determine the reaction forces at A (left side) and B (right side) of the beam.  Here is an example beam
-//        q/x                     2q
-//    _______________              |
-//    |  |  |  |  |  |             |
-//   _v__v__v__v__v__v_____________v______________
-//  ^                                             ^
-//  A                    x--->                    B
-//We take the sum of the moments about A to find the reaction force at B and then subtract the reaction force B from the sum of all of the forces to determine A
-//Shear has units of force lbf or N
-//2-Bending moment has units of lbf*ft or N*m is the integral of the shear with respect to X.  We calculate it using Simpson's rule
-//
-//
+
+    // Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
+    // Here are the next steps:
+    // 1-Determine the reaction forces at A (left side) and B (right side) of the beam.  Here is an example beam
+    //         q/x                     2q
+    //     _______________              |
+    //     |  |  |  |  |  |             |
+    //    _v__v__v__v__v__v_____________v______________
+    //   ^                                             ^
+    //   A                    x--->                    B
+    // We take the sum of the moments about A to find the reaction force at B and then subtract the reaction force B from the sum of all of the forces to determine A
+    // Shear has units of force lbf or N
+    // 2-Bending moment has units of lbf*ft or N*m is the integral of the shear with respect to X.  We calculate it using Simpson's rule
+    
+
+    // Given: Applied weight w(x) of all point loads, pins, fixed supports, and continuous loads
+    // Step 1: V(x) = - int{ w(x) dx } + C1
+    // Step 2: M(x) = int{ V(x) dx } + C1*x + C2
+    // Step 3: th(x) = int{ M(x) / EI dx } + C1*x^2/2 + C2*x + c3
+    // Step 4: y(x) = int{ th(x) dx } + C1*x^3/6 + C2*x^2/2 + C3*x + C4
+
+    // Unknowns:
+    // Add 4 unknowns from the constants of integration: C1, C2, C3, C4
+    // Add 2 unknowns for each fixed end (applied force and applied moment)
+    // Add 1 unknown for each pin (applied force)
+
+    // Equations:
+    // Add 2 equations for each end of the beam (4 total): V = 0, M = 0
+    // Add 2 equations for each end that is fixed: th = 0, y = 0
+    // Add 1 equation for every pin: y = 0
+
+    // Examples: 
+    // Simply supported beam (V is zero in this case because there is a discontinuity at each endpoint, the zero value is at the outside of the discontinuity)
+    //
+    //       |
+    //  _____V______
+    //  ^          ^
+    //  p1         p2
+    //
+    // Unknowns: C1, C2, C3, C4, p1, p2
+    // Equations: V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(0) = 0, y(L) = 0
+    // DOF: 0
+    
+    // Fixed-free beam
+    //
+    //           |
+    //   //|_____V______
+    //   //|      
+    //   p1, m1   
+    //
+    // Unknowns (6): C1, C2, C3, C4, p1, m1
+    // Equations (6): V(0) = 0, M(0) = 0, th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0
+    // DOF: 0
+    
+    // Fixed-pin beam
+    //
+    //           |
+    //   //|_____V______
+    //   //|           ^
+    //   p1, m1        p2
+    //
+    // Unknowns (7): C1, C2, C3, C4, p1, m1, p2
+    // Equations (7): V(0) = 0, M(0) = 0, th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, y(L) = 0
+    // DOF: 0
+    
+    // Fixed-fixed beam
+    //
+    //           |
+    //   //|_____V______|//
+    //   //|            |//
+    //   p1, m1       p2, m2
+    //
+    // Unknowns (8): C1, C2, C3, C4, p1, m1, p2, m2
+    // Equations (8): V(0) = 0, M(0) = 0, th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, th(L) = 0, y(L) = 0
+    // DOF: 0
+    
+    // Three pins in middle of beam
+    //   ___________
+    //     ^  ^  ^ 
+    //     p1 p2 p3
+    //
+    // Unknowns (7): C1, C2, C3, C4, p1, p2, p3
+    // Equations (7): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0, y(3) = 0
+    // DOF: 0
+    
+    // Unsupported beam
+    //   ___________
+    //
+    // Unknowns (8): C1, C2, C3, C4
+    // Equations (8): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0
+    // DOF: 0
+    // Will result in singular matrix when solving
+    
+    // Beam with single pin
+    //   ___________
+    //     ^
+    //     p1
+    //
+    // Unknowns (8): C1, C2, C3, C4, p1
+    // Equations (8): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(1) = 0
+    // DOF: 0
+    // Will result in singular matrix when solving
+    
+    // Unbalanced beam
+    //
+    //           |
+    //   ________V__
+    //    ^   ^
+    //    p1  p2
+    //
+    // Unknowns (8): C1, C2, C3, C4, p1, p2
+    // Equations (8): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0
+    // DOF: 0
+    // Will solve just fine with one of the pins having a negative load (but it's a pin, not a roller, so it's okay)
+    
+    // The unknown pin loads will appear in the integrations; their contributions will propagate through the integrations like
+    // the constants of integration do; they will appear in the final matrix with x's and x^2's and x^3's and stuff. So
+    // during the integrations we'll have to propagate those unknowns symbolically. Or we can add them in to the matrix at the end.
+
+    
     // Calculate shear
    for (let i = 0; i < grid.length - 1; i++) {
       const a = grid[i].x

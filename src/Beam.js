@@ -367,6 +367,9 @@ export default class Beam {
     // Add 2 equations for each end that is fixed: th = 0, y = 0
     // Add 1 equation for every pin: y = 0
 
+    // Because V(0) = 0 and M(0) = 0 for every beam (non-zero boundary conditions are assumed to be unknown applied forces and moments), we can eliminate two unknowns immediately: C1 = 0 and C2 = 0.
+    
+
     // Examples: 
     // Simply supported beam (V is zero in this case because there is a discontinuity at each endpoint, the zero value is at the outside of the discontinuity)
     //
@@ -375,8 +378,8 @@ export default class Beam {
     //  ^          ^
     //  p1         p2
     //
-    // Unknowns: C1, C2, C3, C4, p1, p2
-    // Equations: V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(0) = 0, y(L) = 0
+    // Unknowns (4): C3, C4, p1, p2
+    // Equations (4): V(L) = 0, M(L) = 0, y(0) = 0, y(L) = 0
     // DOF: 0
     
     // Fixed-free beam
@@ -386,8 +389,8 @@ export default class Beam {
     //   //|      
     //   p1, m1   
     //
-    // Unknowns (6): C1, C2, C3, C4, p1, m1
-    // Equations (6): V(0) = 0, M(0) = 0, th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0
+    // Unknowns (4): C3, C4, p1, m1
+    // Equations (4): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0
     // DOF: 0
     
     // Fixed-pin beam
@@ -397,8 +400,8 @@ export default class Beam {
     //   //|           ^
     //   p1, m1        p2
     //
-    // Unknowns (7): C1, C2, C3, C4, p1, m1, p2
-    // Equations (7): V(0) = 0, M(0) = 0, th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, y(L) = 0
+    // Unknowns (5): C3, C4, p1, m1, p2
+    // Equations (5): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, y(L) = 0
     // DOF: 0
     
     // Fixed-fixed beam
@@ -408,8 +411,8 @@ export default class Beam {
     //   //|            |//
     //   p1, m1       p2, m2
     //
-    // Unknowns (8): C1, C2, C3, C4, p1, m1, p2, m2
-    // Equations (8): V(0) = 0, M(0) = 0, th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, th(L) = 0, y(L) = 0
+    // Unknowns (6): C3, C4, p1, m1, p2, m2
+    // Equations (6): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, th(L) = 0, y(L) = 0
     // DOF: 0
     
     // Three pins in middle of beam
@@ -417,15 +420,15 @@ export default class Beam {
     //     ^  ^  ^ 
     //     p1 p2 p3
     //
-    // Unknowns (7): C1, C2, C3, C4, p1, p2, p3
-    // Equations (7): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0, y(3) = 0
+    // Unknowns (5): C3, C4, p1, p2, p3
+    // Equations (5): V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0, y(3) = 0
     // DOF: 0
     
     // Unsupported beam
     //   ___________
     //
-    // Unknowns (8): C1, C2, C3, C4
-    // Equations (8): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0
+    // Unknowns (2): C3, C4
+    // Equations (2): V(L) = 0, M(L) = 0
     // DOF: 0
     // Will result in singular matrix when solving
     
@@ -434,8 +437,8 @@ export default class Beam {
     //     ^
     //     p1
     //
-    // Unknowns (8): C1, C2, C3, C4, p1
-    // Equations (8): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(1) = 0
+    // Unknowns (3): C3, C4, p1
+    // Equations (3): V(L) = 0, M(L) = 0, y(1) = 0
     // DOF: 0
     // Will result in singular matrix when solving
     
@@ -446,8 +449,8 @@ export default class Beam {
     //    ^   ^
     //    p1  p2
     //
-    // Unknowns (8): C1, C2, C3, C4, p1, p2
-    // Equations (8): V(0) = 0, M(0) = 0, V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0
+    // Unknowns (4): C3, C4, p1, p2
+    // Equations (4): V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0
     // DOF: 0
     // Will solve just fine with one of the pins having a negative load (but it's a pin, not a roller, so it's okay)
     

@@ -5,7 +5,7 @@ export default class Beam {
     this._moment = null
     this._modulus = null
     this.pointLoads = [] // Array of discrete loads. (Note the absence of the _ in this assignment: this invokes the setter which creates a Proxy; see the setter below for more details.)
-    this._contLoad = null // A function that gives the load on the beam as a function of distance from the left anchor
+    this._contLoad = () => 0 // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
     this.pins=[] //pins and rollers are the same for this thing
@@ -315,6 +315,8 @@ export default class Beam {
       }
     }
 
+    // TODO: Add pin locations to the grid
+
     // Sort grid first by x-coordinate, then by relationToPointLoad
     // TODO: Use binary search insertion in the for..of loop above to improve performance
     grid.sort((a, b) => {
@@ -329,13 +331,12 @@ export default class Beam {
     return grid
   }
 
-  solve () {
+  solve (numGridPts) {
 
     // TODO: For any anchors which are "simple", add a pin to that location before solving (but don't change this.pins, we want that to stay the same)
 
 
-    let grid = this._createGrid(5)
-    console.log(grid)
+    let grid = this._createGrid(numGridPts)
 
     // Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
     // Here are the next steps:
@@ -457,17 +458,52 @@ export default class Beam {
     // The unknown pin loads will appear in the integrations; their contributions will propagate through the integrations like
     // the constants of integration do; they will appear in the final matrix with x's and x^2's and x^3's and stuff. So
     // during the integrations we'll have to propagate those unknowns symbolically. Or we can add them in to the matrix at the end.
-
     
-    // Calculate shear
-   for (let i = 0; i < grid.length - 1; i++) {
+    // Calculate Vbar
+    // When we encounter point loads, the shear force take a step jump up
+    let vbarSum = 0
+    grid[0].vbar = 0
+    for (let i = 0; i < grid.length - 1; i++) {
       const a = grid[i].x
       const b = grid[i + 1].x
-      const fa = this.contLoad(a) //reaction force at point A (left side) based on loads
-      const fa2 = this.contLoad((a + b) / 2)
-      const fb = this.contLoad(b)
-
-      console.log(gridx)
+      if (grid[i].isPointLoad && grid[i].relationToPointLoad === -1) {
+        // This is a point load
+        vbarSum += grid[i].pointLoad
+      } else {
+        // This is not a point load
+        const fa = this.contLoad(a)
+        const fa2 = this.contLoad((a + b) / 2)
+        const fb = this.contLoad(b)
+        vbarSum += (fa + 4*fa2 + fb) / 6 * (b - a) // Simpson's rule (this might not be necessary most of the time; trapezoid rule will give equivalent results for linear contLoads)
+      }
+      grid[i+1].vbar = vbarSum
     }
+
+    // Calculate moment
+    // Use trapezoid rule because we did not evaluate vbar at the midpoints of grid sections
+    let mbarSum = 0
+    grid[0].mbar = 0
+    for (let i = 0; i < grid.length - 1; i++) {
+      const a = grid[i].x
+      const b = grid[i + 1].x
+      
+      const fa = grid[i].vbar
+      const fb = grid[i+1].vbar
+      mbarSum += (fa + fb) / 2 * (b - a) // Trapezoid rule
+      
+      grid[i+1].mbar = mbarSum
+    }
+
+    // Calculate thetabar
+
+
+    // Calculate ybar
+
+
+
+    // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
+    // For now, just return the grid, which we can use to check to see if everything's working right
+    return grid
+
   }
 }

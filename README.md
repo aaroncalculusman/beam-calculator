@@ -170,7 +170,38 @@ $$\overline{\theta}(x) = \frac{1}{EI}  \int_0^x \overline M(x) dx$$
 
 $$\overline{y}(x) = \int_0^x \overline \theta(x) dx$$
 
- As an example, assume that we have a fixed anchor on the left with reaction force $p_0$ and moment $m_0$, a fixed anchor on the right with reaction force $p_L$ and moment $m_L$, and two pinned joints located at $x_1$ and $x_2$, with unknown reaction forces $p_1$ and $p_2$. The presence of anchors means that the integration is carried out piecewise. The shear force $V$ is then given by:
+To perform the numerical integration and calculation of $\overline{V}$, $\overline{M}$, $\overline{\theta}$, and $\overline{y}$, we use the trapezoid rule and Simpson's rule, discretizing the functions on a grid of points between 0 and $L$. We also add a grid point at each point load or anchor. During the integration, point loads can create discontinuities. In these cases, two grid points are created with the same x-coordinate, and each is assigned to one side of the discontinuity.
+
+Whenever possible, we would like the numerical integration to be as accurate as possible. It turns out that if the applied load to the beam, $w(x)$, is either uniform or a point load, we can carry out each numerical integration exactly. Here's why:
+
+```
+Problem: We want to know ybar(x) at these grid points:
+x---------------x
+
+Step 1: Divide the grid further and evaluate w(x) at these points:
+x---x---x---x---x
+
+Step 2: Use the trapezoid rule to evaluate Vbar(x). If w(x) is constant (zero-order), Vbar(x) will be linear (first order) and this calculation will be exact.
+Vbar(x) is now known at the following grid points:
+x---x---x---x---x
+
+Step 3: Use the trapezoid rule to evaluate mbar(x). If Vbar(x) is first order, mbar(x) will be second order, and this will be an exact calculation.
+mbar(x) is now known at the following grid points:
+
+Step 4: Use Simpson's rule to evaluate thetabar(x). This is required in order to give an exact result, which will be a third order function. The number of grid points is halved.
+thetabar(x) is now known at the following grid points:
+x-------x-------x
+
+Step 5: Use Simpson's rule to evaluate ybar(x). This results in an exact fourth order function. The number of grid points is halved again.
+ybar(x) is now known exactly at the following grid points:
+x---------------x
+```
+
+In the last two integrations, the number of grid points at which an exact integral can be calculated is halved as a result of using Simpson's rule. Using Simpson's rule is required because we are integrating a higher-order function. The trapezoid rule is sufficient for the first two integrations because it can still produce exact numerical integrals of zero- and first-order functions. This also means that the applied load on the beam must be evaluated at more grid points than will be present in the final result for ybar.
+
+We won't know a priori if the applied load is a constant or not--the user simply provides a function. We think the method of integration above will provide sufficient accuracy for non-uniform loads, and has the benefit of providing exact answers for uniform loads.
+
+The numerical integration to find $ybar$ is only half the battle. To fully solve the problem and find the as yet unknown constants of integration, consider this generalized example. Assume that we have a fixed anchor on the left with reaction force $p_0$ and moment $m_0$, a fixed anchor on the right with reaction force $p_L$ and moment $m_L$, and two pinned joints located at $x_1$ and $x_2$, with unknown reaction forces $p_1$ and $p_2$. The presence of anchors means that the integration is carried out piecewise. The shear force $V$ is then given by:
 
 $$ V(x) = \begin{cases}
 \overline{V}(x) + c_1 & x = 0 \\
@@ -224,9 +255,7 @@ We have now worked out the expression for the fully generalized beam. Adding add
 
 At the present time, the implementation requires the beam to have constant rigidity $EI$. This is so that unknowns which appear in intermediate integrations can be carried through symbolically, and all solved simultaneously at the end.
 
-The next step is to perform the numerical integration and calculation of $\overline{V}$, $\overline{M}$, $\overline{\theta}$, and $\overline{y}$. For this we use Simpson's rule, discretizing the functions on a grid of points between 0 and $L$. We also add a grid point at each point load or anchor. During the integration, point loads can create discontinuities. In these cases, two grid points are created with the same x-coordinate, and each is assigned to one side of the discontinuity.
-
-The final step is to solve for the unknown variables $c_3$, $c_4$, and for variables pertaining to unknown anchor forces and moments $p_i$ and $m_i$. Lucky for us, this is a straightforward linear algebra problem that can be solved with a method such as LU-decomposition. The difficulty lies in preparing the matrix and keeping all our ducks in a row.
+The final step is to solve for the remaining unknown variables $c_3$, $c_4$, and others introduced by the various anchors. The remaining boundary conditions not yet considered are $V(L) = 0$ and $M(L) = 0$. Each pin joint adds one unknown $p_i$ and one equation $y(i) = 0$, and each fixed joint adds the unknowns $p_i$ and $m_i$, and the equations $\theta(i) = 0$ and $y(i) = 0$. Thus, the degrees of freedom for the problem is always zero. This is a straightforward linear algebra problem that can be solved with a method such as LU-decomposition. The difficulty lies in preparing the matrix and keeping all our ducks in a row.
 
 
 

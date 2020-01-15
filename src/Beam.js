@@ -8,7 +8,7 @@ export default class Beam {
     this._contLoad = () => 0 // A function that gives the load on the beam as a function of distance from the left anchor
     this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
     this._isSolved = false
-    this.pins=[] //pins and rollers are the same for this thing
+    this.pins = [] // pins and rollers are the same for this thing
   }
 
   get length () {
@@ -124,7 +124,6 @@ export default class Beam {
 
     this._isSolved = false
   }
-
 
   /**
    * Tests whether the given object is a valid point load.
@@ -266,7 +265,6 @@ export default class Beam {
       throw new TypeError('numGridPts must be a positive integer.')
     }
 
-
     // Create a grid of points
     const grid = []
 
@@ -276,8 +274,8 @@ export default class Beam {
         x: this._length * i / numGridPts
       }
 
-      //grid[i] = { }
-      //grid[i].x = this._length * i / numGridPts
+      // grid[i] = { }
+      // grid[i].x = this._length * i / numGridPts
     }
 
     // Add two grid points for each point load
@@ -327,14 +325,11 @@ export default class Beam {
       else return 0
     })
 
-
     return grid
   }
 
   solve (numGridPts) {
-
     // TODO: For any anchors which are "simple", add a pin to that location before solving (but don't change this.pins, we want that to stay the same)
-
 
     let grid = this._createGrid(numGridPts)
 
@@ -350,7 +345,6 @@ export default class Beam {
     // We take the sum of the moments about A to find the reaction force at B and then subtract the reaction force B from the sum of all of the forces to determine A
     // Shear has units of force lbf or N
     // 2-Bending moment has units of lbf*ft or N*m is the integral of the shear with respect to X.  We calculate it using Simpson's rule
-    
 
     // Given: Applied weight w(x) of all point loads, pins, fixed supports, and continuous loads
     // Step 1: V(x) = - int{ w(x) dx } + C1
@@ -369,9 +363,8 @@ export default class Beam {
     // Add 1 equation for every pin: y = 0
 
     // Because V(0) = 0 and M(0) = 0 for every beam (non-zero boundary conditions are assumed to be unknown applied forces and moments), we can eliminate two unknowns immediately: C1 = 0 and C2 = 0.
-    
 
-    // Examples: 
+    // Examples:
     // Simply supported beam (V is zero in this case because there is a discontinuity at each endpoint, the zero value is at the outside of the discontinuity)
     //
     //       |
@@ -382,18 +375,18 @@ export default class Beam {
     // Unknowns (4): C3, C4, p1, p2
     // Equations (4): V(L) = 0, M(L) = 0, y(0) = 0, y(L) = 0
     // DOF: 0
-    
+
     // Fixed-free beam
     //
     //           |
     //   //|_____V______
-    //   //|      
-    //   p1, m1   
+    //   //|
+    //   p1, m1
     //
     // Unknowns (4): C3, C4, p1, m1
     // Equations (4): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0
     // DOF: 0
-    
+
     // Fixed-pin beam
     //
     //           |
@@ -404,7 +397,7 @@ export default class Beam {
     // Unknowns (5): C3, C4, p1, m1, p2
     // Equations (5): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, y(L) = 0
     // DOF: 0
-    
+
     // Fixed-fixed beam
     //
     //           |
@@ -415,16 +408,16 @@ export default class Beam {
     // Unknowns (6): C3, C4, p1, m1, p2, m2
     // Equations (6): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, th(L) = 0, y(L) = 0
     // DOF: 0
-    
+
     // Three pins in middle of beam
     //   ___________
-    //     ^  ^  ^ 
+    //     ^  ^  ^
     //     p1 p2 p3
     //
     // Unknowns (5): C3, C4, p1, p2, p3
     // Equations (5): V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0, y(3) = 0
     // DOF: 0
-    
+
     // Unsupported beam
     //   ___________
     //
@@ -432,7 +425,7 @@ export default class Beam {
     // Equations (2): V(L) = 0, M(L) = 0
     // DOF: 0
     // Will result in singular matrix when solving
-    
+
     // Beam with single pin
     //   ___________
     //     ^
@@ -442,7 +435,7 @@ export default class Beam {
     // Equations (3): V(L) = 0, M(L) = 0, y(1) = 0
     // DOF: 0
     // Will result in singular matrix when solving
-    
+
     // Unbalanced beam
     //
     //           |
@@ -454,56 +447,88 @@ export default class Beam {
     // Equations (4): V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0
     // DOF: 0
     // Will solve just fine with one of the pins having a negative load (but it's a pin, not a roller, so it's okay)
-    
-    // The unknown pin loads will appear in the integrations; their contributions will propagate through the integrations like
-    // the constants of integration do; they will appear in the final matrix with x's and x^2's and x^3's and stuff. So
-    // during the integrations we'll have to propagate those unknowns symbolically. Or we can add them in to the matrix at the end.
-    
-    // Calculate Vbar
-    // When we encounter point loads, the shear force take a step jump up
-    let vbarSum = 0
+
+    // Do integrations in one pass of the for loop, so that we can use intermediate values without having to store them between loops.
     grid[0].vbar = 0
-    for (let i = 0; i < grid.length - 1; i++) {
-      const a = grid[i].x
-      const b = grid[i + 1].x
-      if (grid[i].isPointLoad && grid[i].relationToPointLoad === -1) {
-        // This is a point load
-        vbarSum += grid[i].pointLoad
-      } else {
-        // This is not a point load
-        const fa = this.contLoad(a)
-        const fa2 = this.contLoad((a + b) / 2)
-        const fb = this.contLoad(b)
-        vbarSum += (fa + 4*fa2 + fb) / 6 * (b - a) // Simpson's rule (this might not be necessary most of the time; trapezoid rule will give equivalent results for linear contLoads)
-      }
-      grid[i+1].vbar = vbarSum
-    }
-
-    // Calculate moment
-    // Use trapezoid rule because we did not evaluate vbar at the midpoints of grid sections
-    let mbarSum = 0
     grid[0].mbar = 0
+    grid[0].thetabar = 0
+    grid[0].ybar = 0
     for (let i = 0; i < grid.length - 1; i++) {
       const a = grid[i].x
       const b = grid[i + 1].x
-      
-      const fa = grid[i].vbar
-      const fb = grid[i+1].vbar
-      mbarSum += (fa + fb) / 2 * (b - a) // Trapezoid rule
-      
-      grid[i+1].mbar = mbarSum
+
+      if (grid[i].isPointLoad && grid[i].relationToPointLoad === -1) {
+        // This is a point load.
+        // Add the contributions from the point load to Vbar. The other variables, I think, will remain unchanged.
+
+        grid[i + 1].vbar = grid[i].vbar + grid[i].pointLoad
+        grid[i + 1].mbar = grid[i].mbar
+        grid[i + 1].thetabar = grid[i].thetabar
+        grid[i + 1].ybar = grid[i].ybar
+      } else if (a !== b) {
+        // Further subdivide this grid point into 4 sections. The final two integrations will halve the number of points, which will bring us back to the original grid.
+        // Intermediate points:
+        const ab = (a + b) / 2
+        const aab = (a + ab) / 2
+        const abb = (ab + b) / 2
+
+        // Evaluate w at intemediate points
+        const fa = this.contLoad(a) // TODO: Could reuse previous loop's fb
+        const faab = this.contLoad(aab)
+        const fab = this.contLoad(ab)
+        const fabb = this.contLoad(abb)
+        const fb = this.contLoad(b)
+
+        // Calculate Vbar using trapezoid rule
+        const vbara = grid[i].vbar
+        const vbaraab = vbara + (faab + fa) / 2 * (aab - a)
+        const vbarab = vbaraab + (fab + faab) / 2 * (ab - aab)
+        const vbarabb = vbarab + (fabb + fab) / 2 * (abb - ab)
+        const vbarb = vbarabb + (fb + fabb) / 2 * (b - abb)
+
+        // Calculate mbar using trapezoid rule
+        const mbara = grid[i].mbar
+        const mbaraab = mbara + (vbaraab + vbara) / 2 * (aab - a)
+        const mbarab = mbaraab + (vbarab + vbaraab) / 2 * (ab - aab)
+        const mbarabb = mbarab + (vbarabb + vbarab) / 2 * (abb - ab)
+        const mbarb = mbarabb + (vbarb + vbarabb) / 2 * (b - abb)
+
+        // Calculate thetabar using Simpson's rule
+        const thetabara = grid[i].thetabar
+        const thetabarab = thetabara + (mbara + 4 * mbaraab + mbarab) / 6 * (ab - a)
+        const thetabarb = thetabarab + (mbarab + 4 * mbarabb + mbarb) / 6 * (b - ab)
+
+        // Try using trapezoid rule instead... what do we get? We get pretty close to the right answer. Our simpson's rule must be off...
+        // const thetabara = grid[i].thetabar
+        // const thetabaraab = thetabara + (mbaraab + mbara) / 2 * (aab - a)
+        // const thetabarab = thetabaraab + (mbarab + mbaraab) / 2 * (ab - aab)
+        // const thetabarabb = thetabarab + (mbarabb + mbarab) / 2 * (abb - ab)
+        // const thetabarb = thetabarabb + (mbarb + mbarabb) / 2 * (b - abb)
+
+        // Calculate ybar using Simpson's rule
+        const ybara = grid[i].ybar
+        const ybarb = ybara + (thetabara + 4 * thetabarab + thetabarb) / 6 * (b - a)
+
+        // Store results in grid
+        grid[i + 1].vbar = vbarb
+        grid[i + 1].mbar = mbarb
+        grid[i + 1].thetabar = thetabarb
+        grid[i + 1].ybar = ybarb
+      } else if (grid[i].isAnchor && grid[i].relationToAnchor === -1) {
+        // This is not a point load and not a normal grid interval, it must be an anchor. The *bar variables do not include contributions from anchors.
+        grid[i + 1].vbar = grid[i].vbar
+        grid[i + 1].mbar = grid[i].mbar
+        grid[i + 1].thetabar = grid[i].thetabar
+        grid[i + 1].ybar = grid[i].ybar
+      } else {
+        throw new Error('Unsupported type of grid point.')
+      }
     }
 
-    // Calculate thetabar
-
-
-    // Calculate ybar
-
-
+    // The numerical integration is complete. The *bar variables are calculated at each grid point.
 
     // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
     // For now, just return the grid, which we can use to check to see if everything's working right
     return grid
-
   }
 }

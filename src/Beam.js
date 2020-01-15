@@ -498,13 +498,6 @@ export default class Beam {
         const thetabarab = thetabara + (mbara + 4 * mbaraab + mbarab) / 6 * (ab - a)
         const thetabarb = thetabarab + (mbarab + 4 * mbarabb + mbarb) / 6 * (b - ab)
 
-        // Try using trapezoid rule instead... what do we get? We get pretty close to the right answer. Our simpson's rule must be off...
-        // const thetabara = grid[i].thetabar
-        // const thetabaraab = thetabara + (mbaraab + mbara) / 2 * (aab - a)
-        // const thetabarab = thetabaraab + (mbarab + mbaraab) / 2 * (ab - aab)
-        // const thetabarabb = thetabarab + (mbarabb + mbarab) / 2 * (abb - ab)
-        // const thetabarb = thetabarabb + (mbarb + mbarabb) / 2 * (b - abb)
-
         // Calculate ybar using Simpson's rule
         const ybara = grid[i].ybar
         const ybarb = ybara + (thetabara + 4 * thetabarab + thetabarb) / 6 * (b - a)

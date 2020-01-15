@@ -12,7 +12,7 @@ describe('beam', () => {
       assert.strictEqual(b._modulus, null)
       assert.deepStrictEqual(b._pointLoads, [])
       assert.strictEqual(b.contLoad(3.14), 0)
-      assert.deepStrictEqual(b._anchor, ['simple', 'simple'])
+      assert.deepStrictEqual(b._anchor, ['free', 'free'])
       assert.strictEqual(b._isSolved, false)
     })
 
@@ -417,13 +417,13 @@ describe('beam', () => {
           x: 5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 6 },
         { x: 8 },
@@ -431,13 +431,13 @@ describe('beam', () => {
           x: 8.5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 8.5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 10 }
       ])
@@ -457,25 +457,25 @@ describe('beam', () => {
           x: 4,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 4,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         {
           x: 6,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 6,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 8 },
         { x: 10 }
@@ -497,17 +497,169 @@ describe('beam', () => {
           x: 4,
           isPointLoad: true,
           pointLoad: 30,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 4,
           isPointLoad: true,
           pointLoad: 30,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 6 },
         { x: 8 },
         { x: 10 }
+      ])
+    })
+    it('should add pins to the grid and sort them', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPin(5)
+      b.addPin(8.5)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        { x: 4 },
+        {
+          x: 5,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 5,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        {
+          x: 8.5,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 8.5,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 10 }
+      ])
+    })
+
+    it('should replace an existing grid point if a pin falls on the grid', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPin(4)
+      b.addPin(6)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 4,
+          isPin: true,
+          relationToFeature: 1
+        },
+        {
+          x: 6,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 6,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should allow pins and pointLoads at the same location', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(4, 10)
+      b.addPointLoad(5, 20)
+      b.addPin(4)
+      b.addPin(5)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          pointLoad: 10,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 4,
+          pointLoad: 10,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: 1
+        },
+        {
+          x: 5,
+          pointLoad: 20,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 5,
+          pointLoad: 20,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should add second grid point for fixed anchors', () => {
+      const b = new Beam()
+      b.length = 10
+      b.anchorRight = 'fixed'
+      b.anchorLeft = 'fixed'
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        },
+        {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        },
+        { x: 2 },
+        { x: 4 },
+        { x: 6 },
+        { x: 8 },
+        {
+          x: 10,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        },
+        {
+          x: 10,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        }
       ])
     })
 

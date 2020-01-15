@@ -6,7 +6,7 @@ export default class Beam {
     this._modulus = null
     this.pointLoads = [] // Array of discrete loads. (Note the absence of the _ in this assignment: this invokes the setter which creates a Proxy; see the setter below for more details.)
     this._contLoad = () => 0 // A function that gives the load on the beam as a function of distance from the left anchor
-    this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
+    this._anchor = ['free', 'free'] // or 'fixed'
     this._isSolved = false
     this.pins = [] // pins and rollers are the same for this thing
   }
@@ -67,7 +67,7 @@ export default class Beam {
   }
 
   set anchorLeft (newAnchorLeft) {
-    const allowed = ['simple', 'fixed', 'free']
+    const allowed = ['free', 'fixed']
     if (!allowed.includes(newAnchorLeft)) {
       throw new TypeError(`anchorLeft must be one of ${allowed.join(', ')}`)
     }
@@ -80,7 +80,7 @@ export default class Beam {
   }
 
   set anchorRight (newAnchorRight) {
-    const allowed = ['simple', 'fixed', 'free']
+    const allowed = ['free', 'fixed']
     if (!allowed.includes(newAnchorRight)) {
       throw new TypeError(`anchorRight must be one of ${allowed.join(', ')}`)
     }
@@ -271,7 +271,7 @@ export default class Beam {
     // Add evenly spaced points
     for (let i = 0; i <= numGridPts; i++) {
       grid[i] = {
-        x: this._length * i / numGridPts
+        x: this._length * (i / numGridPts) // parens ensure that the final x will be exactly _length
       }
 
       // grid[i] = { }
@@ -283,15 +283,15 @@ export default class Beam {
       // NOTE: The conditional statements in this block make exact comparisons between floating-point numbers. This is intended.
 
       // Check for ptLoads that exist at an existing grid location
-      let dupeGridPointIndex = grid.findIndex(pt => pt.x === ptLoad.x && !pt.isPointLoad)
+      let dupeGridPointIndex = grid.findIndex(pt => pt.x === ptLoad.x && !pt.isPointLoad && !pt.isPin)
       if (dupeGridPointIndex >= 0) {
         // Remove the existing grid point
         grid.splice(dupeGridPointIndex, 1)
       }
 
       // Check for duplicate ptLoads
-      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === -1)
-      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === 1)
+      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToFeature === -1)
+      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToFeature === 1)
       if (dupePointLoadIndex1 >= 0 && dupePointLoadIndex2 >= 0) {
         // Instead of adding new grid points, just add this point load to the existing ones
         grid[dupePointLoadIndex1].pointLoad += ptLoad.w
@@ -302,18 +302,86 @@ export default class Beam {
           x: ptLoad.x,
           pointLoad: ptLoad.w,
           isPointLoad: true,
-          relationToPointLoad: -1
+          relationToFeature: -1
         })
         grid.push({
           x: ptLoad.x,
           pointLoad: ptLoad.w,
           isPointLoad: true,
-          relationToPointLoad: 1
+          relationToFeature: 1
         })
       }
     }
 
-    // TODO: Add pin locations to the grid
+    // Add two grid points for each pin
+    for (let pin of this._pins) {
+      // Check for duplicate pin at this location
+      if (grid.some(pt => pt.x === pin.x && pt.isPin)) {
+        // No need to add a second pin at the same point
+        continue
+      }
+
+      // Check for pin at existing grid point (but not a point load)
+      let dupeGridPointIndex = grid.findIndex(pt => pt.x === pin.x && !pt.isPointLoad && !pt.isPin)
+      if (dupeGridPointIndex >= 0) {
+        // Remove the existing grid point
+        grid.splice(dupeGridPointIndex, 1)
+      }
+
+      // Check for point load at same location
+      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === pin.x && pt.isPointLoad && pt.relationToFeature === -1)
+      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === pin.x && pt.isPointLoad && pt.relationToFeature === 1)
+      if (dupePointLoadIndex1 >= 0 && dupePointLoadIndex2 >= 0) {
+        // Instead of adding new grid points, just mark this point as a pin
+        grid[dupePointLoadIndex1].isPin = true
+        grid[dupePointLoadIndex2].isPin = true
+      } else {
+        // Add two new grid points for this pin
+        grid.push({
+          x: pin.x,
+          isPin: true,
+          relationToFeature: -1
+        })
+        grid.push({
+          x: pin.x,
+          isPin: true,
+          relationToFeature: 1
+        })
+      }
+    }
+
+    // If anchors are fixed, add a second grid point since there will be a discontinuity at the endpoints
+    if (this.anchorLeft === 'fixed') {
+      let existingGridPt = grid.findIndex(pt => pt.x === 0 && !pt.isPointLoad && !pt.isPin)
+      if (existingGridPt >= 0) {
+        // Add second grid point
+        grid.splice(existingGridPt, 1, {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        }, {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        })
+      }
+    }
+
+    if (this.anchorRight === 'fixed') {
+      let existingGridPt = grid.findIndex(pt => pt.x === this._length && !pt.isPointLoad && !pt.isPin)
+      if (existingGridPt >= 0) {
+        // Add second grid point
+        grid.splice(existingGridPt, 1, {
+          x: this._length,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        }, {
+          x: this._length,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        })
+      }
+    }
 
     // Sort grid first by x-coordinate, then by relationToPointLoad
     // TODO: Use binary search insertion in the for..of loop above to improve performance
@@ -322,6 +390,9 @@ export default class Beam {
       else if (a.x < b.x) return -1
       else if (a.relationToPointLoad > b.relationToPointLoad) return 1
       else if (a.relationToPointLoad < b.relationToPointLoad) return -1
+      else if (a.relationToPin > b.relationToPin) return 1
+      else if (a.relationToPin < b.relationToPin) return -1
+
       else return 0
     })
 
@@ -329,8 +400,6 @@ export default class Beam {
   }
 
   solve (numGridPts) {
-    // TODO: For any anchors which are "simple", add a pin to that location before solving (but don't change this.pins, we want that to stay the same)
-
     let grid = this._createGrid(numGridPts)
 
     // Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
@@ -457,7 +526,7 @@ export default class Beam {
       const a = grid[i].x
       const b = grid[i + 1].x
 
-      if (grid[i].isPointLoad && grid[i].relationToPointLoad === -1) {
+      if (grid[i].isPointLoad && grid[i].relationToFeature === -1) {
         // This is a point load.
         // Add the contributions from the point load to Vbar. The other variables, I think, will remain unchanged.
 
@@ -507,7 +576,7 @@ export default class Beam {
         grid[i + 1].mbar = mbarb
         grid[i + 1].thetabar = thetabarb
         grid[i + 1].ybar = ybarb
-      } else if (grid[i].isAnchor && grid[i].relationToAnchor === -1) {
+      } else if (grid[i].isPin && grid[i].relationToFeature === -1) {
         // This is not a point load and not a normal grid interval, it must be an anchor. The *bar variables do not include contributions from anchors.
         grid[i + 1].vbar = grid[i].vbar
         grid[i + 1].mbar = grid[i].mbar
@@ -519,6 +588,15 @@ export default class Beam {
     }
 
     // The numerical integration is complete. The *bar variables are calculated at each grid point.
+
+    // We need to decide where in the matrix each equation and unknown will live.
+    // Generally, we'll go from left to right. This will keep the matrix mostly diagonal.
+
+    // The variables and equations will be indexed in this order:
+    // if fixed anchor on left: add two variables m_left and p_left; add equations y(0) = 0 and theta(0) = 0
+    // for each pin: add variable p_i; add equation y(i) = 0
+    // if fixed anchor on right: add variables m_right and p_right; add equations y(L) = 0 and theta(L) = 0
+    // add variables c3 and c4; add equation m(L) = 0, v(L) = 0
 
     // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
     // For now, just return the grid, which we can use to check to see if everything's working right

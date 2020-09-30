@@ -25,9 +25,9 @@ b.moment = 100 // SI = meter^4, US = inch^4
 
 // (Not yet supported)
 // Alternatively, set a variable second moment of
-// area (tapered beam) by assigning a function to 
+// area (tapered beam) by assigning a function to
 // moment. The function accepts a value which is the
-// distance from the left end of the beam, and 
+// distance from the left end of the beam, and
 // returns the second moment of area at that point.
 b.moment = someFunction // (Not yet supported: will throw an error)
 
@@ -52,7 +52,7 @@ b.pointLoads.push({ x: 4, w: 1000 })
 // In addition to point loads, you can also
 // add a continuous load using a function.
 // The function accepts a value which is the
-// distance from the left end of the beam, and 
+// distance from the left end of the beam, and
 // returns the force per unit length at that
 // point.
 b.contLoad = Function
@@ -118,7 +118,7 @@ If we add a second pin joint, the degrees of freedom remain unchanged:
 c1, c2, c3, c4, p1, p2
 
 _______________________
-    ^             ^  
+    ^             ^
  y(x1) = 0   y(x2) = 0
 
 V(0) = 0       V(L) = 0
@@ -132,7 +132,7 @@ If we add a fixed joint to the left end of the beam, we add two additional unkno
 c1, c2, c3, c4, p1, p2, p0, m0
 
 /|_______________________
-/|    ^             ^  
+/|    ^             ^
      y(x1) = 0   y(x2) = 0
 y(0) = 0
 th(0) = 0
@@ -236,9 +236,9 @@ $$ M(x) = \begin{cases}
 Now the slope $\theta$ is given by:
 
 $$ \theta(x) = \begin{cases}
-\overline{\theta}(x) - \frac{1}{EI}\left(p_0 \frac{x^2}{2} + m_0 x\right) & 0 \le x < x_1 \\
-\overline{\theta}(x) - \frac{1}{EI}\left(p_0 \frac{x^2}{2} - p_1 \frac{(x - x_1)^2}{2} + m_0 x\right) & x_1 < x < x_2 \\
-\overline{\theta}(x) - \frac{1}{EI}\left(p_0 \frac{x^2}{2} - p_1 \frac{(x - x_1)^2}{2} - p_2 \frac{(x - x_2)^2}{2} + m_0 x\right) & x_2 < x \le L \\
+\overline{\theta}(x) + \frac{1}{EI}\left(-p_0 \frac{x^2}{2} + m_0 x\right) + c_3 & 0 \le x < x_1 \\
+\overline{\theta}(x) + \frac{1}{EI}\left(-p_0 \frac{x^2}{2} - p_1 \frac{(x - x_1)^2}{2} + m_0 x\right) + c_3 & x_1 < x < x_2 \\
+\overline{\theta}(x) + \frac{1}{EI}\left(-p_0 \frac{x^2}{2} - p_1 \frac{(x - x_1)^2}{2} - p_2 \frac{(x - x_2)^2}{2} + m_0 x\right) + c_3 & x_2 < x \le L \\
 \end{cases} $$
 
 We've taken a bit of a leap here moving from five to three piecewise portions, which one can confirm by working out the various pieces, or simply come to accept by recognizing that $\theta$ must be continuous.
@@ -246,9 +246,9 @@ We've taken a bit of a leap here moving from five to three piecewise portions, w
 Finally, the deflection $y$ is given by:
 
 $$ y(x) = \begin{cases}
-\overline{y}(x) - \frac{1}{EI}\left(p_0 \frac{x^3}{6} + m_0 \frac{x^2}{2}\right) & 0 \le x < x_1 \\
-\overline{y}(x) - \frac{1}{EI}\left(p_0 \frac{x^3}{6} - p_1 \frac{(x - x_1)^3}{6} + m_0 \frac{x^2}{2}\right) & x_1 < x < x_2 \\
-\overline{y}(x) - \frac{1}{EI}\left(p_0 \frac{x^3}{6} - p_1 \frac{(x - x_1)^3}{6} - p_2 \frac{(x - x_2)^3}{6} + m_0 \frac{x^2}{2}\right) & x_2 < x \le L \\
+\overline{y}(x) + \frac{1}{EI}\left(-p_0 \frac{x^3}{6} + m_0 \frac{x^2}{2} \right) + c_3 x + c_4 & 0 \le x < x_1 \\
+\overline{y}(x) + \frac{1}{EI}\left(-p_0 \frac{x^3}{6} - p_1 \frac{(x - x_1)^3}{6} + m_0 \frac{x^2}{2}\right) + c_3 x + c_4 & x_1 < x < x_2 \\
+\overline{y}(x) + \frac{1}{EI}\left(-p_0 \frac{x^3}{6} - p_1 \frac{(x - x_1)^3}{6} - p_2 \frac{(x - x_2)^3}{6} + m_0 \frac{x^2}{2}\right) + c_3 x + c_4 & x_2 < x \le L \\
 \end{cases} $$
 
 We have now worked out the expression for the fully generalized beam. Adding additional pinned joints just increases the number of piecewise portions.
@@ -268,16 +268,20 @@ The final step is to solve for the remaining unknown variables $c_3$, $c_4$, and
 
 Unknowns (4): C3, C4, p1, p2
 Equations (4): V(L) = 0, M(L) = 0, y(0) = 0, y(L) = 0
-DOF: 0Fixed-free beam
+DOF: 0
+
+Fixed-free beam
 
           |
   //|_____V______
-  //|      
-  p1, m1   
+  //|
+  p1, m1
 
 Unknowns (4): C3, C4, p1, m1
 Equations (4): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0
-DOF: 0Fixed-pin beam
+DOF: 0
+
+Fixed-pin beam
 
           |
   //|_____V______
@@ -286,7 +290,9 @@ DOF: 0Fixed-pin beam
 
 Unknowns (5): C3, C4, p1, m1, p2
 Equations (5): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, y(L) = 0
-DOF: 0Fixed-fixed beam
+DOF: 0
+
+Fixed-fixed beam
 
           |
   //|_____V______|//
@@ -295,9 +301,11 @@ DOF: 0Fixed-fixed beam
 
 Unknowns (6): C3, C4, p1, m1, p2, m2
 Equations (6): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, th(L) = 0, y(L) = 0
-DOF: 0Three pins in middle of beam
+DOF: 0
+
+Three pins in middle of beam
   ___________
-    ^  ^  ^ 
+    ^  ^  ^
     p1 p2 p3
 
 Unknowns (5): C3, C4, p1, p2, p3
@@ -310,7 +318,9 @@ Unsupported beam
 Unknowns (2): C3, C4
 Equations (2): V(L) = 0, M(L) = 0
 DOF: 0
-Will result in singular matrix when solvingBeam with single pin
+Will result in singular matrix when solving
+
+Beam with single pin
   ___________
     ^
     p1
@@ -318,7 +328,9 @@ Will result in singular matrix when solvingBeam with single pin
 Unknowns (3): C3, C4, p1
 Equations (3): V(L) = 0, M(L) = 0, y(1) = 0
 DOF: 0
-Will result in singular matrix when solvingUnbalanced beam
+Will result in singular matrix when solving
+
+Unbalanced beam
 
           |
   ________V__

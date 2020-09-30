@@ -593,10 +593,78 @@ export default class Beam {
     // Generally, we'll go from left to right. This will keep the matrix mostly diagonal.
 
     // The variables and equations will be indexed in this order:
-    // if fixed anchor on left: add two variables m_left and p_left; add equations y(0) = 0 and theta(0) = 0
+    // if fixed anchor on left: add two variables m0 and p0; add equations y(0) = 0 and theta(0) = 0
     // for each pin: add variable p_i; add equation y(i) = 0
-    // if fixed anchor on right: add variables m_right and p_right; add equations y(L) = 0 and theta(L) = 0
+    // if fixed anchor on right: add variables mL and pL; add equations y(L) = 0 and theta(L) = 0
     // add variables c3 and c4; add equation m(L) = 0, v(L) = 0
+
+    // If fixed anchor on left, first two variables will be m0 and p0.
+    // First two equations will be:
+    // y(0) = 0, which becomes c_4 = 0
+    // theta(0) = 0, which becomes c_3 = 0
+
+    // For each pin: add variable p_i
+    // Add equation y(x_i) = 0
+    // Which becomes:
+    // ybar(x_i) - 1/EI * (p0 x_i^3/6 - sum(j<i, p_j (x_i - x_j)^3/6) + m0 x_i^2/2) + c_3 x_i + c_4 = 0
+
+    // If fixed anchor on right, next two variables will be mL and pL.
+    // Next two equations will be: y(L) = 0, which becomes:
+    // ybar(L) - 1/EI (p0 L^3/6 - sum(j, p_j (L - x_j)^3/6) + m0 L^2/2) + c_3 L + c_4 = 0
+    // and theta(L) = 0, which becomes:
+    // thetabar(L) + 1/EI (-p0 L^2/2 - sum(j, p_j (L - x_j)^2/2) + m0 L) + c_3 = 0
+
+    // The final two equations are:
+    // m(L) = 0, which becomes:
+    // mbar(L) - p0 L - sum(j, p_j (L - x_j) + m0 + mL = 0
+    // and v(L) = 0, which becomes:
+    // vbar(L) - p0 - sum(j, p_i) - pL = 0
+
+    // List of variables:
+    // m0  (if left fixed anchor)
+    // p0  (if left fixed anchor)
+    // p_i     (for each pin)
+    // mL (if right fixed anchor)
+    // pL (if right fixed anchor)
+    // c3
+    // c4
+
+    // Equations, written again in matrix form with terms in correct order
+    // m0  p0  ...p_i  mL  pL  c_3  c_4   constant
+    //                              c_4 = 0               If fixed anchor on left
+    //                         c_3      = 0               If fixed anchor on left
+    //
+    // For each pin i:
+    // - m0 x_i^2/2EI - p0 x_i^3/6EI + sum(j < i, p_j (x_i - x_j) ^ 3 / 6EI) + c_3 x_i + c_4 = -ybar(x_i)
+
+    // Spelling it out:
+    // For pin p_1 located at x_1, y(x_1) = 0, or:
+    // - m0 x_1^2/2EI - p0 x_1^3/6EI + c_3 x_1 + c_4 = -ybar(x_1)
+    // For pin p_2 located at x_2, y(x_2) = 0, or:
+    // - m0 x_2^2/2EI - p0 x_2^3/6EI + p_1 (x_2 - x_1) ^ 3 / 6EI + c_3 x_2 + c_4 = -ybar(x_2)
+    // For pin p_3 located at x_3, y(x_3) = 0, or:
+    // - m0 x_3^2/2EI - p0 x_3^3/6EI + p_1 (x_3 - x_1) ^ 3 / 6EI + p_2 (x_3 - x_2) ^ 3 / 6EI + c_3 x_3 + c_4 = -ybar(x_3)
+    // And so on. Written in matrix standard form, these become:
+
+    // TODO: Check minus signs on these. Written as above, but it might be wrong?
+    // For pin 1:
+    // m0 [-x_1^2/2EI]  p0 [-x_1^3/6EI]  p_1 [0] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_1] c_4 [1] = -ybar(x_1)
+    // For pin 2:
+    // m0 [-x_2^2/2EI]  p0 [-x_2^3/6EI]  p_1 [(x_2-x_1)^3/6EI] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_2] c_4 [1] = -ybar(x_2)
+    // For pin 3:
+    // m0 [-x_3^2/2EI]  p0 [-x_3^3/6EI]  p_1 [(x_3-x_1)^3/6EI] p_2 [(x_3-x_2)^3/6EI] p_3[0] mL [0] pL [0] c_3 [x_3] c_4 [1] = -ybar(x_3)
+
+    // m(L) = 0:
+    // m0 [1] p0 [-L] p_1 [-L+x_1] p_2 [-L+x_2] p_3 [-L+x_3] mL [1] pL [0] c_3 [0] c_4 [0] = -mbar(L)
+
+    // p(L) = 0:
+    // m0 [0] p0 [-1] p_1 [-1] p_2 [-1] p_3 [-1] mL [0] pL [-1] c_3 [0] c_4 [0] = -vbar(L)
+
+    // Not as hard as I thought! Bookkeeping will be straightforward. Will have to make sure we take the values from the correct sides of the discontinuities, it that is a concern.
+
+    // Matrix is predominantly lower diagonal, as a result of arranging things from left to right. You could almost solve it by straight Gauss-Jordan elimination.
+
+    // TODO: Double check minus signs on everything
 
     // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
     // For now, just return the grid, which we can use to check to see if everything's working right

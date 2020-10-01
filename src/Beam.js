@@ -399,8 +399,31 @@ export default class Beam {
     return grid
   }
 
+  /** Returns the grid point(s) that whose x-coordinate is equal to x. If x is at a pin, there could be multiple grid points matching x. */
+  _findGridPt (x, grid) {
+    // TODO: Binary search, and be rid of this slow method
+    let ret = []
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i].x === x) {
+        ret.push(grid[i])
+      }
+    }
+    return ret
+  }
+
   solve (numGridPts) {
     let grid = this._createGrid(numGridPts)
+
+    let EI = this.moment * this.modulus
+
+    if (EI <= 0) {
+      if (this.moment <= 0) {
+        throw new Error('Cannot solve beam: moment <= 0')
+      }
+      if (this.modulus <= 0) {
+        throw new Error('Cannot solve beam: modulus <= 0')
+      }
+    }
 
     // Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
     // Here are the next steps:
@@ -606,11 +629,11 @@ export default class Beam {
     // For each pin: add variable p_i
     // Add equation y(x_i) = 0
     // Which becomes:
-    // ybar(x_i) - 1/EI * (p0 x_i^3/6 - sum(j<i, p_j (x_i - x_j)^3/6) + m0 x_i^2/2) + c_3 x_i + c_4 = 0
+    // ybar(x_i) + 1/EI * (-p0 x_i^3/6 - sum(j<i, p_j (x_i - x_j)^3/6) + m0 x_i^2/2) + c_3 x_i + c_4 = 0
 
     // If fixed anchor on right, next two variables will be mL and pL.
     // Next two equations will be: y(L) = 0, which becomes:
-    // ybar(L) - 1/EI (p0 L^3/6 - sum(j, p_j (L - x_j)^3/6) + m0 L^2/2) + c_3 L + c_4 = 0
+    // ybar(L) + 1/EI (-p0 L^3/6 - sum(j, p_j (L - x_j)^3/6) + m0 L^2/2) + c_3 L + c_4 = 0
     // and theta(L) = 0, which becomes:
     // thetabar(L) + 1/EI (-p0 L^2/2 - sum(j, p_j (L - x_j)^2/2) + m0 L) + c_3 = 0
 
@@ -635,39 +658,163 @@ export default class Beam {
     //                         c_3      = 0               If fixed anchor on left
     //
     // For each pin i:
-    // - m0 x_i^2/2EI - p0 x_i^3/6EI + sum(j < i, p_j (x_i - x_j) ^ 3 / 6EI) + c_3 x_i + c_4 = -ybar(x_i)
+    // m0 x_i^2/2EI - p0 x_i^3/6EI - sum(j < i, p_j (x_i - x_j) ^ 3 / 6EI) + c_3 x_i + c_4 = -ybar(x_i)
 
     // Spelling it out:
     // For pin p_1 located at x_1, y(x_1) = 0, or:
-    // - m0 x_1^2/2EI - p0 x_1^3/6EI + c_3 x_1 + c_4 = -ybar(x_1)
+    // m0 x_1^2/2EI - p0 x_1^3/6EI + c_3 x_1 + c_4 = -ybar(x_1)
     // For pin p_2 located at x_2, y(x_2) = 0, or:
-    // - m0 x_2^2/2EI - p0 x_2^3/6EI + p_1 (x_2 - x_1) ^ 3 / 6EI + c_3 x_2 + c_4 = -ybar(x_2)
+    // m0 x_2^2/2EI - p0 x_2^3/6EI - p_1 (x_2 - x_1) ^ 3 / 6EI + c_3 x_2 + c_4 = -ybar(x_2)
     // For pin p_3 located at x_3, y(x_3) = 0, or:
-    // - m0 x_3^2/2EI - p0 x_3^3/6EI + p_1 (x_3 - x_1) ^ 3 / 6EI + p_2 (x_3 - x_2) ^ 3 / 6EI + c_3 x_3 + c_4 = -ybar(x_3)
+    // m0 x_3^2/2EI - p0 x_3^3/6EI - p_1 (x_3 - x_1) ^ 3 / 6EI - p_2 (x_3 - x_2) ^ 3 / 6EI + c_3 x_3 + c_4 = -ybar(x_3)
     // And so on. Written in matrix standard form, these become:
 
-    // TODO: Check minus signs on these. Written as above, but it might be wrong?
     // For pin 1:
-    // m0 [-x_1^2/2EI]  p0 [-x_1^3/6EI]  p_1 [0] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_1] c_4 [1] = -ybar(x_1)
+    // m0 [x_1^2/2EI]  p0 [-x_1^3/6EI]  p_1 [0] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_1] c_4 [1] = -ybar(x_1)
     // For pin 2:
-    // m0 [-x_2^2/2EI]  p0 [-x_2^3/6EI]  p_1 [(x_2-x_1)^3/6EI] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_2] c_4 [1] = -ybar(x_2)
+    // m0 [x_2^2/2EI]  p0 [-x_2^3/6EI]  p_1 [-(x_2-x_1)^3/6EI] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_2] c_4 [1] = -ybar(x_2)
     // For pin 3:
-    // m0 [-x_3^2/2EI]  p0 [-x_3^3/6EI]  p_1 [(x_3-x_1)^3/6EI] p_2 [(x_3-x_2)^3/6EI] p_3[0] mL [0] pL [0] c_3 [x_3] c_4 [1] = -ybar(x_3)
+    // m0 [x_3^2/2EI]  p0 [-x_3^3/6EI]  p_1 [-(x_3-x_1)^3/6EI] p_2 [-(x_3-x_2)^3/6EI] p_3[0] mL [0] pL [0] c_3 [x_3] c_4 [1] = -ybar(x_3)
 
     // m(L) = 0:
-    // m0 [1] p0 [-L] p_1 [-L+x_1] p_2 [-L+x_2] p_3 [-L+x_3] mL [1] pL [0] c_3 [0] c_4 [0] = -mbar(L)
+    // m0 [1] p0 [-L] p_1 [-(L-x_1)] p_2 [-(L-x_2)] p_3 [-(L-x_3)] mL [1] pL [0] c_3 [0] c_4 [0] = -mbar(L)
 
-    // p(L) = 0:
+    // v(L) = 0:
     // m0 [0] p0 [-1] p_1 [-1] p_2 [-1] p_3 [-1] mL [0] pL [-1] c_3 [0] c_4 [0] = -vbar(L)
 
     // Not as hard as I thought! Bookkeeping will be straightforward. Will have to make sure we take the values from the correct sides of the discontinuities, it that is a concern.
 
     // Matrix is predominantly lower diagonal, as a result of arranging things from left to right. You could almost solve it by straight Gauss-Jordan elimination.
 
-    // TODO: Double check minus signs on everything
+    let A = []
+    let b = []
+
+    // List of variables:
+    // m0  (if left fixed anchor)  0
+    // p0  (if left fixed anchor)  1
+    // p_i     (for each pin)      nLeftDofs + i (starting at i=0)
+    // mL (if right fixed anchor)  nLeftDofs + nPinDofs
+    // pL (if right fixed anchor)  nLeftDofs + nPinDofs + 1
+    // c3                          nLeftDofs + nPinDofs + nRightDofs
+    // c4                          nLeftDofs + nPinDofs + nRightDofs + 1
+
+    let nLeftDofs = this.anchorLeft ? 2 : 0
+    let nRightDofs = this.anchorRight ? 2 : 0
+    let nPinDofs = this.pins.length
+    let nDofs = nLeftDofs + nPinDofs + nRightDofs + 2
+
+    // Column indices of each variable
+    let m0Idx, p0Idx, pIdx, mLIdx, pLIdx, c3Idx, c4Idx
+
+    // Row indices of each equation
+    let eqY0Idx, eqTheta0Idx, eqYxIdx, eqYLIdx, eqThetaLIdx, eqMLIdx, eqVLIdx
+
+    // Set column and row indices (by adjusting the indices here, we can rearrange the matrix without breaking anything else)
+    if (this.anchorLeft) {
+      m0Idx = 0
+      p0Idx = 1
+      eqY0Idx = 0
+      eqTheta0Idx = 1
+    }
+    pIdx = nLeftDofs // + i, with i starting at 0 for the first pin
+    eqYxIdx = nLeftDofs // + i, with i starting at 0 for the first pin
+    if (this.anchorRight) {
+      mLIdx = nLeftDofs + nPinDofs
+      pLIdx = nLeftDofs + nPinDofs + 1
+      eqYLIdx = nLeftDofs + nPinDofs
+      eqThetaLIdx = nLeftDofs + nPinDofs + 1
+    }
+    c3Idx = nLeftDofs + nPinDofs + nRightDofs
+    c4Idx = nLeftDofs + nPinDofs + nRightDofs + 1
+    eqMLIdx = nLeftDofs + nPinDofs + nRightDofs
+    eqVLIdx = nLeftDofs + nPinDofs + nRightDofs + 1
+
+    // Initialize A and b to 0's
+    for (let i = 0; i < nDofs; i++) {
+      A[i] = []
+      for (let j = 0; j < nDofs; j++) {
+        A[i][j] = 0
+      }
+    }
+
+    // Set coefficients of A and b
+    if (this.anchorLeft) {
+      // y(0) = 0, or c_4 = 0
+      A[eqY0Idx][c4Idx] = 1
+      b[eqY0Idx] = 0
+
+      // theta(0) = 0, or c_3 = 0
+      A[eqTheta0Idx][c3Idx] = 1
+      b[eqTheta0Idx] = 0
+    }
+    for (let i = 0; i < this.pins.length; i++) {
+      // y(x_i) = 0, or:
+      // ybar(x_i) + 1/EI * (-p0 x_i^3/6 - sum(j<i, p_j (x_i - x_j)^3/6) + m0 x_i^2/2) + c_3 x_i + c_4 = 0
+
+      // For the third pin, for example:
+      // m0 [x_3^2/2EI]  p0 [-x_3^3/6EI]  p_1 [-(x_3-x_1)^3/6EI] p_2 [-(x_3-x_2)^3/6EI] p_3[0] mL [0] pL [0] c_3 [x_3] c_4 [1] = -ybar(x_3)
+      let xI = this.pins[i].x
+      A[eqYxIdx + i][m0Idx] = xI ** 2 / (2 * EI)
+      A[eqYxIdx + i][p0Idx] = -(xI ** 3) / (6 * EI)
+      for (let j = 0; j < i; j++) {
+        let xJ = this.pins[j].x
+        A[eqYxIdx + i][pIdx + j] = -((xI - xJ) ** 3) / (6 * EI)
+      }
+      A[eqYxIdx + i][c3Idx] = xI
+      A[eqYxIdx + i][c4Idx] = 1
+      b[eqYxIdx + i] = -this._findGridPt(xI)[0].ybar // ybar will be equal on both sides of the discontinuity, so both grid points will match
+    }
+
+    let L = this.length
+    if (this.anchorRight) {
+      // y(L) = 0
+      // ybar(L) + 1/EI (-p0 L^3/6 - sum(j, p_j (L - x_j)^3/6) + m0 L^2/2) + c_3 L + c_4 = 0
+      //  -p0 L^3/(6 EI) + sum(j, -p_j (L - x_j)^3/(6EI)) + m0 L^2/(2EI) + c_3 L + c_4 = -ybar(L)
+      A[eqYLIdx][p0Idx] = -(L ** 3) / (6 * EI)
+      for (let j = 0; j < this.pins.length; j++) {
+        let xJ = this.pins[j].x
+        A[eqYLIdx][pIdx + j] = -((L - xJ) ** 3) / (6 * EI)
+      }
+      A[eqYLIdx][m0Idx] = L ** 2 / (2 * EI)
+      A[eqYLIdx][c3Idx] = L
+      A[eqYLIdx][c4Idx] = 1
+      b[eqYLIdx] = -grid[grid.length - 1].ybar // Final grid point
+
+      // theta(L) = 0
+      // -p0 L^2/(2EI) + sum(j, -p_j (L - x_j)^2/(2EI)) + m0 L / EI + c_3 = -thetabar(L)
+      A[eqThetaLIdx][p0Idx] = -(L ** 2) / (2 * EI)
+      for (let j = 0; j < this.pins.length; j++) {
+        let xJ = this.pins[j].x
+        A[eqThetaLIdx][pIdx + j] = -((L - xJ) ** 2) / (2 * EI)
+      }
+      A[eqThetaLIdx][m0Idx] = L / EI
+      A[eqThetaLIdx][c3Idx] = 1
+      b[eqThetaLIdx] = -grid[grid.length - 1].thetabar
+    }
+
+    // m(L) = 0
+    // m0 [1] p0 [-L] p_1 [-(L-x_1)] p_2 [-(L-x_2)] p_3 [-(L-x_3)] mL [1] pL [0] c_3 [0] c_4 [0] = -mbar(L)
+    A[eqMLIdx][m0Idx] = 1
+    A[eqMLIdx][p0Idx] = -L
+    for (let j = 0; j < this.pins.length; j++) {
+      let xJ = this.pins[j].x
+      A[eqMLIdx][pIdx + j] = -(L - xJ)
+    }
+    A[eqMLIdx][mLIdx] = 1
+    b[eqMLIdx] = -grid[grid.length - 1].mbar // Final grid point, right side of discontinuity, if there is one (which I don't think can happen with mbar)
+
+    // v(L) = 0:
+    // m0 [0] p0 [-1] p_1 [-1] p_2 [-1] p_3 [-1] mL [0] pL [-1] c_3 [0] c_4 [0] = -vbar(L)
+    A[eqVLIdx][p0Idx] = -1
+    for (let j = 0; j < this.pins.length; j++) {
+      A[eqVLIdx][pIdx + j] = -1
+    }
+    A[eqVLIdx][pLIdx] = -1
+    b[eqVLIdx] = -grid[grid.length - 1].vbar // Final grid point. I think there could be a discontinuity here if there is a point load on the very end of the beam.
 
     // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
-    // For now, just return the grid, which we can use to check to see if everything's working right
-    return grid
+    // For now, just return the grid, A, and b, which we can use to check to see if everything's working right
+
+    return { grid, A, b }
   }
 }

@@ -677,7 +677,9 @@ describe('beam', () => {
     it('should calculate vbar, mbar, thetabar, and ybar', () => {
       let b = new Beam()
       b.length = 10
-      let grid = b.solve(5)
+      b.moment = 1
+      b.modulus = 1
+      let { grid } = b.solve(5)
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 0, 0, 0])
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 0, 0])
@@ -688,8 +690,10 @@ describe('beam', () => {
 
       b = new Beam()
       b.length = 10
-      b.contLoad = x => 3
-      grid = b.solve(5)
+      b.moment = 1
+      b.modulus = 1
+      b.contLoad = x => 3;
+      ({ grid } = b.solve(5))
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 6, 12, 18, 24, 30]) // 3 * x
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 6, 24, 54, 96, 150]) // 3 * x^2/2
@@ -699,8 +703,10 @@ describe('beam', () => {
       // This will not be an exact answer
       b = new Beam()
       b.length = 10
-      b.contLoad = x => x
-      grid = b.solve(5)
+      b.moment = 1
+      b.modulus = 1
+      b.contLoad = x => x;
+      ({ grid } = b.solve(5))
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 2, 8, 18, 32, 50]) // x^2/2
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 1.375, 10.75, 36.125, 85.5, 166.875]) // x^3/6.  Exact should be [0, 1.333, 10.666, 36, 85.333, 166.666]
@@ -709,8 +715,10 @@ describe('beam', () => {
 
       b = new Beam()
       b.length = 10
-      b.contLoad = x => x
-      grid = b.solve(500)
+      b.moment = 1
+      b.modulus = 1
+      b.contLoad = x => x;
+      ({ grid } = b.solve(500))
       approx.equal(grid[500].x, 10)
       approx.equal(grid[500].vbar, 50)
       approx.equal(grid[500].mbar, 1000 / 6) // 166.666666...
@@ -719,8 +727,10 @@ describe('beam', () => {
 
       b = new Beam()
       b.length = 100
-      b.contLoad = x => x
-      grid = b.solve(500)
+      b.moment = 1
+      b.modulus = 1
+      b.contLoad = x => x;
+      ({ grid } = b.solve(500))
       approx.equal(grid[500].x, 100)
       approx.equal(grid[500].vbar, 5000)
       approx.equal(grid[500].mbar, 1000000 / 6)
@@ -729,8 +739,10 @@ describe('beam', () => {
 
       b = new Beam()
       b.length = 10
-      b.addPointLoad(5, 100)
-      grid = b.solve(5)
+      b.moment = 1
+      b.modulus = 1
+      b.addPointLoad(5, 100);
+      ({ grid } = b.solve(5))
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 5, 5, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 0, 100, 100, 100, 100])
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 0, 100, 300, 500])
@@ -739,8 +751,10 @@ describe('beam', () => {
 
       b = new Beam()
       b.length = 10
-      b.addPointLoad(4, 100)
-      grid = b.solve(5)
+      b.moment = 1
+      b.modulus = 1
+      b.addPointLoad(4, 100);
+      ({ grid } = b.solve(5))
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 4, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 100, 100, 100, 100])
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 200, 400, 600])

@@ -12,7 +12,7 @@ describe('beam', () => {
       assert.strictEqual(b._modulus, null)
       assert.deepStrictEqual(b._pointLoads, [])
       assert.strictEqual(b.contLoad(3.14), 0)
-      assert.deepStrictEqual(b._anchor, ['simple', 'simple'])
+      assert.deepStrictEqual(b._anchor, ['free', 'free'])
       assert.strictEqual(b._isSolved, false)
     })
 
@@ -55,6 +55,7 @@ describe('beam', () => {
     })
 
     it.skip('should support functions', () => {
+      const b = new Beam()
       b.moment = x => x * x
       assert.strictEqual(b.moment(10), 100)
     })
@@ -239,7 +240,7 @@ describe('beam', () => {
     it('should remove a point load', () => {
       const b = new Beam()
       const p1 = b.addPointLoad(10, 20)
-      const p2 = b.addPointLoad(15, 30)
+      b.addPointLoad(15, 30)
       assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }, { x: 15, w: 30 }])
       b.removePointLoad(p1)
       assert.deepStrictEqual(b.pointLoads, [{ x: 15, w: 30 }])
@@ -257,7 +258,7 @@ describe('beam', () => {
     it('should throw if the point load is not found', () => {
       const b = new Beam()
       const p1 = b.addPointLoad(10, 20)
-      const p2 = b.addPointLoad(15, 30)
+      b.addPointLoad(15, 30)
       assert.deepStrictEqual(b.pointLoads, [{ x: 10, w: 20 }, { x: 15, w: 30 }])
       assert.throws(() => { b.removePointLoad({ x: 10, w: 20 }) }, /Error: The given point load was not found. \(Point loads are matched by reference, not value.\)/)
       assert.doesNotThrow(() => { b.removePointLoad(p1) })
@@ -362,7 +363,7 @@ describe('beam', () => {
     it('should remove a pin', () => {
       const b = new Beam()
       const p1 = b.addPin(10)
-      const p2 = b.addPin(15)
+      b.addPin(15)
       assert.deepStrictEqual(b.pins, [{ x: 10 }, { x: 15 }])
       b.removePin(p1)
       assert.deepStrictEqual(b.pins, [{ x: 15 }])
@@ -380,7 +381,7 @@ describe('beam', () => {
     it('should throw if the pin is not found', () => {
       const b = new Beam()
       const p1 = b.addPin(10)
-      const p2 = b.addPin(15)
+      b.addPin(15)
       assert.deepStrictEqual(b.pins, [{ x: 10 }, { x: 15 }])
       assert.throws(() => { b.removePin({ x: 10 }) }, /Error: The given pin was not found. \(Pins are matched by reference, not value.\)/)
       assert.doesNotThrow(() => { b.removePin(p1) })
@@ -388,7 +389,6 @@ describe('beam', () => {
       assert.throws(() => { b.removePin(p1) }, /Error: The given pin was not found. \(Pins are matched by reference, not value.\)/)
     })
   })
-
 
   describe('_createGrid', () => {
     it('should create an evenly spaced grid', () => {
@@ -417,13 +417,13 @@ describe('beam', () => {
           x: 5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 6 },
         { x: 8 },
@@ -431,13 +431,13 @@ describe('beam', () => {
           x: 8.5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 8.5,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 10 }
       ])
@@ -457,25 +457,25 @@ describe('beam', () => {
           x: 4,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 4,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         {
           x: 6,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 6,
           isPointLoad: true,
           pointLoad: 10,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 8 },
         { x: 10 }
@@ -497,17 +497,169 @@ describe('beam', () => {
           x: 4,
           isPointLoad: true,
           pointLoad: 30,
-          relationToPointLoad: -1
+          relationToFeature: -1
         },
         {
           x: 4,
           isPointLoad: true,
           pointLoad: 30,
-          relationToPointLoad: 1
+          relationToFeature: 1
         },
         { x: 6 },
         { x: 8 },
         { x: 10 }
+      ])
+    })
+    it('should add pins to the grid and sort them', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPin(5)
+      b.addPin(8.5)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        { x: 4 },
+        {
+          x: 5,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 5,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        {
+          x: 8.5,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 8.5,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 10 }
+      ])
+    })
+
+    it('should replace an existing grid point if a pin falls on the grid', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPin(4)
+      b.addPin(6)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 4,
+          isPin: true,
+          relationToFeature: 1
+        },
+        {
+          x: 6,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 6,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should allow pins and pointLoads at the same location', () => {
+      const b = new Beam()
+      b.length = 10
+      b.addPointLoad(4, 10)
+      b.addPointLoad(5, 20)
+      b.addPin(4)
+      b.addPin(5)
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        { x: 0 },
+        { x: 2 },
+        {
+          x: 4,
+          pointLoad: 10,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 4,
+          pointLoad: 10,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: 1
+        },
+        {
+          x: 5,
+          pointLoad: 20,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: -1
+        },
+        {
+          x: 5,
+          pointLoad: 20,
+          isPointLoad: true,
+          isPin: true,
+          relationToFeature: 1
+        },
+        { x: 6 },
+        { x: 8 },
+        { x: 10 }
+      ])
+    })
+
+    it('should add second grid point for fixed anchors', () => {
+      const b = new Beam()
+      b.length = 10
+      b.anchorRight = 'fixed'
+      b.anchorLeft = 'fixed'
+      let grid = b._createGrid(5)
+
+      assert.deepStrictEqual(grid, [
+        {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        },
+        {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        },
+        { x: 2 },
+        { x: 4 },
+        { x: 6 },
+        { x: 8 },
+        {
+          x: 10,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        },
+        {
+          x: 10,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        }
       ])
     })
 
@@ -529,48 +681,51 @@ describe('beam', () => {
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 0, 0, 0])
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 0, 0])
+      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 0, 0])
+      assert.deepStrictEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 0, 0])
       // thetabar
       // ybar
 
       b = new Beam()
       b.length = 10
-      b.contLoad = x => 10
+      b.contLoad = x => 3
       grid = b.solve(5)
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 20, 40, 60, 80, 100])
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 20, 80, 180, 320, 500])
-      // thetabar
-      // ybar
+      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 6, 12, 18, 24, 30]) // 3 * x
+      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 6, 24, 54, 96, 150]) // 3 * x^2/2
+      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 4, 32, 108, 256, 500]) // 3 * x^3/6
+      assert.deepStrictEqual(grid.map(g => g.ybar), [0, 2, 32, 162, 512, 1250]) // 3 * x^4/24
 
+      // This will not be an exact answer
       b = new Beam()
       b.length = 10
       b.contLoad = x => x
       grid = b.solve(5)
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 2, 8, 18, 32, 50])
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 2, 12, 38, 88, 170])
-      // thetabar
-      // ybar
+      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 2, 8, 18, 32, 50]) // x^2/2
+      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 1.375, 10.75, 36.125, 85.5, 166.875]) // x^3/6.  Exact should be [0, 1.333, 10.666, 36, 85.333, 166.666]
+      approx.deepEqual(grid.map(g => g.thetabar), [0, 0.7083, 10.8333, 54.375, 171.3333, 417.7083]) // x^4/24.  Exact should be [0, 0.666, 10.666, 54, 170.666, 416.666]
+      approx.deepEqual(grid.map(g => g.ybar), [0, 0.30555, 8.7777, 65.5833, 274.888, 836.861]) // x^5/120.  Exact should be [0, 0.2666, 8.5333, 64.8, 273.0667, 833.33]
 
       b = new Beam()
       b.length = 10
       b.contLoad = x => x
       grid = b.solve(500)
-      assert.deepStrictEqual(grid[500].x, 10)
-      assert.deepStrictEqual(grid[500].vbar, 50)
-      approx.equal(grid[500].mbar, 1000/6) // 166.666666...
-      // thetabar
-      // ybar
+      approx.equal(grid[500].x, 10)
+      approx.equal(grid[500].vbar, 50)
+      approx.equal(grid[500].mbar, 1000 / 6) // 166.666666...
+      approx.equal(grid[500].thetabar, 10000 / 24)
+      approx.equal(grid[500].ybar, 100000 / 120)
 
       b = new Beam()
       b.length = 100
       b.contLoad = x => x
-      grid = b.solve(5)
-      assert.deepStrictEqual(grid.map(g => g.x), [0, 20, 40, 60, 80, 100])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 200, 800, 1800, 3200, 5000])
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 2000, 12000, 38000, 88000, 170000])
-      // thetabar
-      // ybar
+      grid = b.solve(500)
+      approx.equal(grid[500].x, 100)
+      approx.equal(grid[500].vbar, 5000)
+      approx.equal(grid[500].mbar, 1000000 / 6)
+      approx.equal(grid[500].thetabar, 100000000 / 24)
+      approx.equal(grid[500].ybar, 10000000000 / 120)
 
       b = new Beam()
       b.length = 10
@@ -579,8 +734,8 @@ describe('beam', () => {
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 5, 5, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 0, 100, 100, 100, 100])
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 0, 100, 300, 500])
-      // thetabar
-      // ybar
+      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 0, 50, 450, 1250])
+      approx.deepEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 0, 16.6667, 450, 2083.3333])
 
       b = new Beam()
       b.length = 10
@@ -589,10 +744,8 @@ describe('beam', () => {
       assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 4, 6, 8, 10])
       assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 100, 100, 100, 100])
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 200, 400, 600])
-      // thetabar
-      // ybar
-
-
+      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 200, 800, 1800])
+      approx.deepEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 133.3333, 1066.6667, 3600])
     })
   })
 })

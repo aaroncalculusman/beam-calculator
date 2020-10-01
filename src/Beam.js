@@ -6,9 +6,9 @@ export default class Beam {
     this._modulus = null
     this.pointLoads = [] // Array of discrete loads. (Note the absence of the _ in this assignment: this invokes the setter which creates a Proxy; see the setter below for more details.)
     this._contLoad = () => 0 // A function that gives the load on the beam as a function of distance from the left anchor
-    this._anchor = ['simple', 'simple'] // or 'fixed' or 'free'
+    this._anchor = ['free', 'free'] // or 'fixed'
     this._isSolved = false
-    this.pins=[] //pins and rollers are the same for this thing
+    this.pins = [] // pins and rollers are the same for this thing
   }
 
   get length () {
@@ -67,7 +67,7 @@ export default class Beam {
   }
 
   set anchorLeft (newAnchorLeft) {
-    const allowed = ['simple', 'fixed', 'free']
+    const allowed = ['free', 'fixed']
     if (!allowed.includes(newAnchorLeft)) {
       throw new TypeError(`anchorLeft must be one of ${allowed.join(', ')}`)
     }
@@ -80,7 +80,7 @@ export default class Beam {
   }
 
   set anchorRight (newAnchorRight) {
-    const allowed = ['simple', 'fixed', 'free']
+    const allowed = ['free', 'fixed']
     if (!allowed.includes(newAnchorRight)) {
       throw new TypeError(`anchorRight must be one of ${allowed.join(', ')}`)
     }
@@ -124,7 +124,6 @@ export default class Beam {
 
     this._isSolved = false
   }
-
 
   /**
    * Tests whether the given object is a valid point load.
@@ -266,18 +265,17 @@ export default class Beam {
       throw new TypeError('numGridPts must be a positive integer.')
     }
 
-
     // Create a grid of points
     const grid = []
 
     // Add evenly spaced points
     for (let i = 0; i <= numGridPts; i++) {
       grid[i] = {
-        x: this._length * i / numGridPts
+        x: this._length * (i / numGridPts) // parens ensure that the final x will be exactly _length
       }
 
-      //grid[i] = { }
-      //grid[i].x = this._length * i / numGridPts
+      // grid[i] = { }
+      // grid[i].x = this._length * i / numGridPts
     }
 
     // Add two grid points for each point load
@@ -285,15 +283,15 @@ export default class Beam {
       // NOTE: The conditional statements in this block make exact comparisons between floating-point numbers. This is intended.
 
       // Check for ptLoads that exist at an existing grid location
-      let dupeGridPointIndex = grid.findIndex(pt => pt.x === ptLoad.x && !pt.isPointLoad)
+      let dupeGridPointIndex = grid.findIndex(pt => pt.x === ptLoad.x && !pt.isPointLoad && !pt.isPin)
       if (dupeGridPointIndex >= 0) {
         // Remove the existing grid point
         grid.splice(dupeGridPointIndex, 1)
       }
 
       // Check for duplicate ptLoads
-      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === -1)
-      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToPointLoad === 1)
+      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToFeature === -1)
+      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === ptLoad.x && pt.isPointLoad && pt.relationToFeature === 1)
       if (dupePointLoadIndex1 >= 0 && dupePointLoadIndex2 >= 0) {
         // Instead of adding new grid points, just add this point load to the existing ones
         grid[dupePointLoadIndex1].pointLoad += ptLoad.w
@@ -304,18 +302,86 @@ export default class Beam {
           x: ptLoad.x,
           pointLoad: ptLoad.w,
           isPointLoad: true,
-          relationToPointLoad: -1
+          relationToFeature: -1
         })
         grid.push({
           x: ptLoad.x,
           pointLoad: ptLoad.w,
           isPointLoad: true,
-          relationToPointLoad: 1
+          relationToFeature: 1
         })
       }
     }
 
-    // TODO: Add pin locations to the grid
+    // Add two grid points for each pin
+    for (let pin of this._pins) {
+      // Check for duplicate pin at this location
+      if (grid.some(pt => pt.x === pin.x && pt.isPin)) {
+        // No need to add a second pin at the same point
+        continue
+      }
+
+      // Check for pin at existing grid point (but not a point load)
+      let dupeGridPointIndex = grid.findIndex(pt => pt.x === pin.x && !pt.isPointLoad && !pt.isPin)
+      if (dupeGridPointIndex >= 0) {
+        // Remove the existing grid point
+        grid.splice(dupeGridPointIndex, 1)
+      }
+
+      // Check for point load at same location
+      let dupePointLoadIndex1 = grid.findIndex(pt => pt.x === pin.x && pt.isPointLoad && pt.relationToFeature === -1)
+      let dupePointLoadIndex2 = grid.findIndex(pt => pt.x === pin.x && pt.isPointLoad && pt.relationToFeature === 1)
+      if (dupePointLoadIndex1 >= 0 && dupePointLoadIndex2 >= 0) {
+        // Instead of adding new grid points, just mark this point as a pin
+        grid[dupePointLoadIndex1].isPin = true
+        grid[dupePointLoadIndex2].isPin = true
+      } else {
+        // Add two new grid points for this pin
+        grid.push({
+          x: pin.x,
+          isPin: true,
+          relationToFeature: -1
+        })
+        grid.push({
+          x: pin.x,
+          isPin: true,
+          relationToFeature: 1
+        })
+      }
+    }
+
+    // If anchors are fixed, add a second grid point since there will be a discontinuity at the endpoints
+    if (this.anchorLeft === 'fixed') {
+      let existingGridPt = grid.findIndex(pt => pt.x === 0 && !pt.isPointLoad && !pt.isPin)
+      if (existingGridPt >= 0) {
+        // Add second grid point
+        grid.splice(existingGridPt, 1, {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        }, {
+          x: 0,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        })
+      }
+    }
+
+    if (this.anchorRight === 'fixed') {
+      let existingGridPt = grid.findIndex(pt => pt.x === this._length && !pt.isPointLoad && !pt.isPin)
+      if (existingGridPt >= 0) {
+        // Add second grid point
+        grid.splice(existingGridPt, 1, {
+          x: this._length,
+          isFixedAnchor: true,
+          relationToFeature: -1
+        }, {
+          x: this._length,
+          isFixedAnchor: true,
+          relationToFeature: 1
+        })
+      }
+    }
 
     // Sort grid first by x-coordinate, then by relationToPointLoad
     // TODO: Use binary search insertion in the for..of loop above to improve performance
@@ -324,18 +390,16 @@ export default class Beam {
       else if (a.x < b.x) return -1
       else if (a.relationToPointLoad > b.relationToPointLoad) return 1
       else if (a.relationToPointLoad < b.relationToPointLoad) return -1
+      else if (a.relationToPin > b.relationToPin) return 1
+      else if (a.relationToPin < b.relationToPin) return -1
+
       else return 0
     })
-
 
     return grid
   }
 
   solve (numGridPts) {
-
-    // TODO: For any anchors which are "simple", add a pin to that location before solving (but don't change this.pins, we want that to stay the same)
-
-
     let grid = this._createGrid(numGridPts)
 
     // Up to this point we have collected downward forces on the beam including point loads and constant or distributed loads.  We have ordered those forces and made a grid representing distances and magnitudes
@@ -350,7 +414,6 @@ export default class Beam {
     // We take the sum of the moments about A to find the reaction force at B and then subtract the reaction force B from the sum of all of the forces to determine A
     // Shear has units of force lbf or N
     // 2-Bending moment has units of lbf*ft or N*m is the integral of the shear with respect to X.  We calculate it using Simpson's rule
-    
 
     // Given: Applied weight w(x) of all point loads, pins, fixed supports, and continuous loads
     // Step 1: V(x) = - int{ w(x) dx } + C1
@@ -369,9 +432,8 @@ export default class Beam {
     // Add 1 equation for every pin: y = 0
 
     // Because V(0) = 0 and M(0) = 0 for every beam (non-zero boundary conditions are assumed to be unknown applied forces and moments), we can eliminate two unknowns immediately: C1 = 0 and C2 = 0.
-    
 
-    // Examples: 
+    // Examples:
     // Simply supported beam (V is zero in this case because there is a discontinuity at each endpoint, the zero value is at the outside of the discontinuity)
     //
     //       |
@@ -382,18 +444,18 @@ export default class Beam {
     // Unknowns (4): C3, C4, p1, p2
     // Equations (4): V(L) = 0, M(L) = 0, y(0) = 0, y(L) = 0
     // DOF: 0
-    
+
     // Fixed-free beam
     //
     //           |
     //   //|_____V______
-    //   //|      
-    //   p1, m1   
+    //   //|
+    //   p1, m1
     //
     // Unknowns (4): C3, C4, p1, m1
     // Equations (4): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0
     // DOF: 0
-    
+
     // Fixed-pin beam
     //
     //           |
@@ -404,7 +466,7 @@ export default class Beam {
     // Unknowns (5): C3, C4, p1, m1, p2
     // Equations (5): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, y(L) = 0
     // DOF: 0
-    
+
     // Fixed-fixed beam
     //
     //           |
@@ -415,16 +477,16 @@ export default class Beam {
     // Unknowns (6): C3, C4, p1, m1, p2, m2
     // Equations (6): th(0) = 0, y(0) = 0, V(L) = 0, M(L) = 0, th(L) = 0, y(L) = 0
     // DOF: 0
-    
+
     // Three pins in middle of beam
     //   ___________
-    //     ^  ^  ^ 
+    //     ^  ^  ^
     //     p1 p2 p3
     //
     // Unknowns (5): C3, C4, p1, p2, p3
     // Equations (5): V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0, y(3) = 0
     // DOF: 0
-    
+
     // Unsupported beam
     //   ___________
     //
@@ -432,7 +494,7 @@ export default class Beam {
     // Equations (2): V(L) = 0, M(L) = 0
     // DOF: 0
     // Will result in singular matrix when solving
-    
+
     // Beam with single pin
     //   ___________
     //     ^
@@ -442,7 +504,7 @@ export default class Beam {
     // Equations (3): V(L) = 0, M(L) = 0, y(1) = 0
     // DOF: 0
     // Will result in singular matrix when solving
-    
+
     // Unbalanced beam
     //
     //           |
@@ -454,56 +516,158 @@ export default class Beam {
     // Equations (4): V(L) = 0, M(L) = 0, y(1) = 0, y(2) = 0
     // DOF: 0
     // Will solve just fine with one of the pins having a negative load (but it's a pin, not a roller, so it's okay)
-    
-    // The unknown pin loads will appear in the integrations; their contributions will propagate through the integrations like
-    // the constants of integration do; they will appear in the final matrix with x's and x^2's and x^3's and stuff. So
-    // during the integrations we'll have to propagate those unknowns symbolically. Or we can add them in to the matrix at the end.
-    
-    // Calculate Vbar
-    // When we encounter point loads, the shear force take a step jump up
-    let vbarSum = 0
+
+    // Do integrations in one pass of the for loop, so that we can use intermediate values without having to store them between loops.
     grid[0].vbar = 0
-    for (let i = 0; i < grid.length - 1; i++) {
-      const a = grid[i].x
-      const b = grid[i + 1].x
-      if (grid[i].isPointLoad && grid[i].relationToPointLoad === -1) {
-        // This is a point load
-        vbarSum += grid[i].pointLoad
-      } else {
-        // This is not a point load
-        const fa = this.contLoad(a)
-        const fa2 = this.contLoad((a + b) / 2)
-        const fb = this.contLoad(b)
-        vbarSum += (fa + 4*fa2 + fb) / 6 * (b - a) // Simpson's rule (this might not be necessary most of the time; trapezoid rule will give equivalent results for linear contLoads)
-      }
-      grid[i+1].vbar = vbarSum
-    }
-
-    // Calculate moment
-    // Use trapezoid rule because we did not evaluate vbar at the midpoints of grid sections
-    let mbarSum = 0
     grid[0].mbar = 0
+    grid[0].thetabar = 0
+    grid[0].ybar = 0
     for (let i = 0; i < grid.length - 1; i++) {
       const a = grid[i].x
       const b = grid[i + 1].x
-      
-      const fa = grid[i].vbar
-      const fb = grid[i+1].vbar
-      mbarSum += (fa + fb) / 2 * (b - a) // Trapezoid rule
-      
-      grid[i+1].mbar = mbarSum
+
+      if (grid[i].isPointLoad && grid[i].relationToFeature === -1) {
+        // This is a point load.
+        // Add the contributions from the point load to Vbar. The other variables, I think, will remain unchanged.
+
+        grid[i + 1].vbar = grid[i].vbar + grid[i].pointLoad
+        grid[i + 1].mbar = grid[i].mbar
+        grid[i + 1].thetabar = grid[i].thetabar
+        grid[i + 1].ybar = grid[i].ybar
+      } else if (a !== b) {
+        // Further subdivide this grid point into 4 sections. The final two integrations will halve the number of points, which will bring us back to the original grid.
+        // Intermediate points:
+        const ab = (a + b) / 2
+        const aab = (a + ab) / 2
+        const abb = (ab + b) / 2
+
+        // Evaluate w at intemediate points
+        const fa = this.contLoad(a) // TODO: Could reuse previous loop's fb
+        const faab = this.contLoad(aab)
+        const fab = this.contLoad(ab)
+        const fabb = this.contLoad(abb)
+        const fb = this.contLoad(b)
+
+        // Calculate Vbar using trapezoid rule
+        const vbara = grid[i].vbar
+        const vbaraab = vbara + (faab + fa) / 2 * (aab - a)
+        const vbarab = vbaraab + (fab + faab) / 2 * (ab - aab)
+        const vbarabb = vbarab + (fabb + fab) / 2 * (abb - ab)
+        const vbarb = vbarabb + (fb + fabb) / 2 * (b - abb)
+
+        // Calculate mbar using trapezoid rule
+        const mbara = grid[i].mbar
+        const mbaraab = mbara + (vbaraab + vbara) / 2 * (aab - a)
+        const mbarab = mbaraab + (vbarab + vbaraab) / 2 * (ab - aab)
+        const mbarabb = mbarab + (vbarabb + vbarab) / 2 * (abb - ab)
+        const mbarb = mbarabb + (vbarb + vbarabb) / 2 * (b - abb)
+
+        // Calculate thetabar using Simpson's rule
+        const thetabara = grid[i].thetabar
+        const thetabarab = thetabara + (mbara + 4 * mbaraab + mbarab) / 6 * (ab - a)
+        const thetabarb = thetabarab + (mbarab + 4 * mbarabb + mbarb) / 6 * (b - ab)
+
+        // Calculate ybar using Simpson's rule
+        const ybara = grid[i].ybar
+        const ybarb = ybara + (thetabara + 4 * thetabarab + thetabarb) / 6 * (b - a)
+
+        // Store results in grid
+        grid[i + 1].vbar = vbarb
+        grid[i + 1].mbar = mbarb
+        grid[i + 1].thetabar = thetabarb
+        grid[i + 1].ybar = ybarb
+      } else if (grid[i].isPin && grid[i].relationToFeature === -1) {
+        // This is not a point load and not a normal grid interval, it must be an anchor. The *bar variables do not include contributions from anchors.
+        grid[i + 1].vbar = grid[i].vbar
+        grid[i + 1].mbar = grid[i].mbar
+        grid[i + 1].thetabar = grid[i].thetabar
+        grid[i + 1].ybar = grid[i].ybar
+      } else {
+        throw new Error('Unsupported type of grid point.')
+      }
     }
 
-    // Calculate thetabar
+    // The numerical integration is complete. The *bar variables are calculated at each grid point.
 
+    // We need to decide where in the matrix each equation and unknown will live.
+    // Generally, we'll go from left to right. This will keep the matrix mostly diagonal.
 
-    // Calculate ybar
+    // The variables and equations will be indexed in this order:
+    // if fixed anchor on left: add two variables m0 and p0; add equations y(0) = 0 and theta(0) = 0
+    // for each pin: add variable p_i; add equation y(i) = 0
+    // if fixed anchor on right: add variables mL and pL; add equations y(L) = 0 and theta(L) = 0
+    // add variables c3 and c4; add equation m(L) = 0, v(L) = 0
 
+    // If fixed anchor on left, first two variables will be m0 and p0.
+    // First two equations will be:
+    // y(0) = 0, which becomes c_4 = 0
+    // theta(0) = 0, which becomes c_3 = 0
 
+    // For each pin: add variable p_i
+    // Add equation y(x_i) = 0
+    // Which becomes:
+    // ybar(x_i) - 1/EI * (p0 x_i^3/6 - sum(j<i, p_j (x_i - x_j)^3/6) + m0 x_i^2/2) + c_3 x_i + c_4 = 0
+
+    // If fixed anchor on right, next two variables will be mL and pL.
+    // Next two equations will be: y(L) = 0, which becomes:
+    // ybar(L) - 1/EI (p0 L^3/6 - sum(j, p_j (L - x_j)^3/6) + m0 L^2/2) + c_3 L + c_4 = 0
+    // and theta(L) = 0, which becomes:
+    // thetabar(L) + 1/EI (-p0 L^2/2 - sum(j, p_j (L - x_j)^2/2) + m0 L) + c_3 = 0
+
+    // The final two equations are:
+    // m(L) = 0, which becomes:
+    // mbar(L) - p0 L - sum(j, p_j (L - x_j) + m0 + mL = 0
+    // and v(L) = 0, which becomes:
+    // vbar(L) - p0 - sum(j, p_i) - pL = 0
+
+    // List of variables:
+    // m0  (if left fixed anchor)
+    // p0  (if left fixed anchor)
+    // p_i     (for each pin)
+    // mL (if right fixed anchor)
+    // pL (if right fixed anchor)
+    // c3
+    // c4
+
+    // Equations, written again in matrix form with terms in correct order
+    // m0  p0  ...p_i  mL  pL  c_3  c_4   constant
+    //                              c_4 = 0               If fixed anchor on left
+    //                         c_3      = 0               If fixed anchor on left
+    //
+    // For each pin i:
+    // - m0 x_i^2/2EI - p0 x_i^3/6EI + sum(j < i, p_j (x_i - x_j) ^ 3 / 6EI) + c_3 x_i + c_4 = -ybar(x_i)
+
+    // Spelling it out:
+    // For pin p_1 located at x_1, y(x_1) = 0, or:
+    // - m0 x_1^2/2EI - p0 x_1^3/6EI + c_3 x_1 + c_4 = -ybar(x_1)
+    // For pin p_2 located at x_2, y(x_2) = 0, or:
+    // - m0 x_2^2/2EI - p0 x_2^3/6EI + p_1 (x_2 - x_1) ^ 3 / 6EI + c_3 x_2 + c_4 = -ybar(x_2)
+    // For pin p_3 located at x_3, y(x_3) = 0, or:
+    // - m0 x_3^2/2EI - p0 x_3^3/6EI + p_1 (x_3 - x_1) ^ 3 / 6EI + p_2 (x_3 - x_2) ^ 3 / 6EI + c_3 x_3 + c_4 = -ybar(x_3)
+    // And so on. Written in matrix standard form, these become:
+
+    // TODO: Check minus signs on these. Written as above, but it might be wrong?
+    // For pin 1:
+    // m0 [-x_1^2/2EI]  p0 [-x_1^3/6EI]  p_1 [0] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_1] c_4 [1] = -ybar(x_1)
+    // For pin 2:
+    // m0 [-x_2^2/2EI]  p0 [-x_2^3/6EI]  p_1 [(x_2-x_1)^3/6EI] p_2 [0] p_3[0] mL [0] pL [0] c_3 [x_2] c_4 [1] = -ybar(x_2)
+    // For pin 3:
+    // m0 [-x_3^2/2EI]  p0 [-x_3^3/6EI]  p_1 [(x_3-x_1)^3/6EI] p_2 [(x_3-x_2)^3/6EI] p_3[0] mL [0] pL [0] c_3 [x_3] c_4 [1] = -ybar(x_3)
+
+    // m(L) = 0:
+    // m0 [1] p0 [-L] p_1 [-L+x_1] p_2 [-L+x_2] p_3 [-L+x_3] mL [1] pL [0] c_3 [0] c_4 [0] = -mbar(L)
+
+    // p(L) = 0:
+    // m0 [0] p0 [-1] p_1 [-1] p_2 [-1] p_3 [-1] mL [0] pL [-1] c_3 [0] c_4 [0] = -vbar(L)
+
+    // Not as hard as I thought! Bookkeeping will be straightforward. Will have to make sure we take the values from the correct sides of the discontinuities, it that is a concern.
+
+    // Matrix is predominantly lower diagonal, as a result of arranging things from left to right. You could almost solve it by straight Gauss-Jordan elimination.
+
+    // TODO: Double check minus signs on everything
 
     // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
     // For now, just return the grid, which we can use to check to see if everything's working right
     return grid
-
   }
 }

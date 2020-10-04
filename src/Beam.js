@@ -1,3 +1,5 @@
+import { create, all } from 'mathjs'
+const math = create(all)
 
 export default class Beam {
   constructor () {
@@ -183,7 +185,7 @@ export default class Beam {
     // Check to make sure each item in newPins is acceptable
     for (let pin of newPins) {
       if (!this._isValidPin(pin)) {
-        throw new TypeError('Each item of pins must be an object of type: { x: number }')
+        throw new TypeError('Each item of pins must be an object with a single property `x` of type number')
       }
     }
     this._pins = newPins
@@ -195,7 +197,7 @@ export default class Beam {
         if (/^\d+$/.test(property)) {
           // Array indexing
           if (!this._isValidPin(value)) {
-            throw new TypeError('A pin must be an object of type: { x: number }')
+            throw new TypeError('A pin must be an object with a single property `x` of type number')
           }
           Object.freeze(value)
         }
@@ -222,7 +224,7 @@ export default class Beam {
    * @param {number} x The distance from the left end of the beam to add the point load.
    * @returns {Object} The new pin that was added.
    */
-  addPin (x, w) {
+  addPin (x) {
     let newPin
     if (typeof x === 'object') {
       newPin = x
@@ -599,13 +601,14 @@ export default class Beam {
         grid[i + 1].mbar = mbarb
         grid[i + 1].thetabar = thetabarb
         grid[i + 1].ybar = ybarb
-      } else if (grid[i].isPin && grid[i].relationToFeature === -1) {
+      } else if ((grid[i].isPin || grid[i].isFixedAnchor) && grid[i].relationToFeature === -1) {
         // This is not a point load and not a normal grid interval, it must be an anchor. The *bar variables do not include contributions from anchors.
         grid[i + 1].vbar = grid[i].vbar
         grid[i + 1].mbar = grid[i].mbar
         grid[i + 1].thetabar = grid[i].thetabar
         grid[i + 1].ybar = grid[i].ybar
       } else {
+        console.log(grid[i])
         throw new Error('Unsupported type of grid point.')
       }
     }
@@ -698,8 +701,8 @@ export default class Beam {
     // c3                          nLeftDofs + nPinDofs + nRightDofs
     // c4                          nLeftDofs + nPinDofs + nRightDofs + 1
 
-    let nLeftDofs = this.anchorLeft ? 2 : 0
-    let nRightDofs = this.anchorRight ? 2 : 0
+    let nLeftDofs = this.anchorLeft === 'fixed' ? 2 : 0
+    let nRightDofs = this.anchorRight === 'fixed' ? 2 : 0
     let nPinDofs = this.pins.length
     let nDofs = nLeftDofs + nPinDofs + nRightDofs + 2
 
@@ -710,7 +713,7 @@ export default class Beam {
     let eqY0Idx, eqTheta0Idx, eqYxIdx, eqYLIdx, eqThetaLIdx, eqMLIdx, eqVLIdx
 
     // Set column and row indices (by adjusting the indices here, we can rearrange the matrix without breaking anything else)
-    if (this.anchorLeft) {
+    if (this.anchorLeft === 'fixed') {
       m0Idx = 0
       p0Idx = 1
       eqY0Idx = 0
@@ -718,7 +721,7 @@ export default class Beam {
     }
     pIdx = nLeftDofs // + i, with i starting at 0 for the first pin
     eqYxIdx = nLeftDofs // + i, with i starting at 0 for the first pin
-    if (this.anchorRight) {
+    if (this.anchorRight === 'fixed') {
       mLIdx = nLeftDofs + nPinDofs
       pLIdx = nLeftDofs + nPinDofs + 1
       eqYLIdx = nLeftDofs + nPinDofs
@@ -738,7 +741,7 @@ export default class Beam {
     }
 
     // Set coefficients of A and b
-    if (this.anchorLeft) {
+    if (this.anchorLeft === 'fixed') {
       // y(0) = 0, or c_4 = 0
       A[eqY0Idx][c4Idx] = 1
       b[eqY0Idx] = 0
@@ -762,11 +765,11 @@ export default class Beam {
       }
       A[eqYxIdx + i][c3Idx] = xI
       A[eqYxIdx + i][c4Idx] = 1
-      b[eqYxIdx + i] = -this._findGridPt(xI)[0].ybar // ybar will be equal on both sides of the discontinuity, so both grid points will match
+      b[eqYxIdx + i] = -this._findGridPt(xI, grid)[0].ybar // ybar will be equal on both sides of the discontinuity, so both grid points will match
     }
 
     let L = this.length
-    if (this.anchorRight) {
+    if (this.anchorRight === 'fixed') {
       // y(L) = 0
       // ybar(L) + 1/EI (-p0 L^3/6 - sum(j, p_j (L - x_j)^3/6) + m0 L^2/2) + c_3 L + c_4 = 0
       //  -p0 L^3/(6 EI) + sum(j, -p_j (L - x_j)^3/(6EI)) + m0 L^2/(2EI) + c_3 L + c_4 = -ybar(L)
@@ -812,9 +815,34 @@ export default class Beam {
     A[eqVLIdx][pLIdx] = -1
     b[eqVLIdx] = -grid[grid.length - 1].vbar // Final grid point. I think there could be a discontinuity here if there is a point load on the very end of the beam.
 
+    let soln
+    let error
+
+    try {
+      soln = math.lusolve(A, b)
+    } catch (ex) {
+      error = 'singular_matrix'
+    }
+
+    if (!error) {
+      // Assign result to named variables for convenience
+      if (this.anchorLeft === 'fixed') {
+        soln.m0 = soln[m0Idx][0]
+        soln.p0 = soln[p0Idx][0]
+      }
+      for (let i = 0; i < this.pins.length; i++) {
+        soln[`pin${i}`] = soln[pIdx + i][0]
+      }
+      if (this.anchorRight === 'fixed') {
+        soln.mL = soln[mLIdx][0]
+        soln.pL = soln[pLIdx][0]
+      }
+      soln.c3 = soln[c3Idx][0]
+      soln.c4 = soln[c4Idx][0]
+    }
     // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
     // For now, just return the grid, A, and b, which we can use to check to see if everything's working right
 
-    return { grid, A, b }
+    return { grid, A, b, soln, error }
   }
 }

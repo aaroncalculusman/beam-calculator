@@ -311,14 +311,14 @@ describe('beam', () => {
 
     it('should throw if attempting to add an invalid pin', () => {
       let b = new Beam()
-      assert.throws(() => { b.pins.push({ x: 'not a valid pin' }) }, /A pin must be an object of type: \{ x: number \}/)
+      assert.throws(() => { b.pins.push({ x: 'not a valid pin' }) }, /A pin must be an object with a single property `x` of type number/)
 
       b = new Beam()
-      assert.throws(() => { b.pins[1] = { y: 4 } }, /A pin must be an object of type: \{ x: number \}/)
+      assert.throws(() => { b.pins[1] = { y: 4 } }, /A pin must be an object with a single property `x` of type number/)
 
       b = new Beam()
       let a
-      assert.throws(() => { b.pins.push(a) }, /A pin must be an object of type: \{ x: number \}/)
+      assert.throws(() => { b.pins.push(a) }, /A pin must be an object with a single property `x` of type number/)
     })
 
     it('should throw if attempting to mutate a pin', () => {
@@ -760,6 +760,86 @@ describe('beam', () => {
       assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 200, 400, 600])
       assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 200, 800, 1800])
       approx.deepEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 133.3333, 1066.6667, 3600])
+    })
+
+    it('should correctly calculate reactive loads and moments with single fixed anchor', () => {
+      // One point load in center
+      let b = new Beam()
+      b.length = 10
+      b.moment = 10
+      b.modulus = 10
+      b.anchorLeft = 'fixed'
+      b.anchorRight = 'free'
+      let ptLd = b.addPointLoad(5, 100)
+      let { soln } = b.solve(50)
+      approx.equal(soln.p0, 100)
+      approx.equal(soln.m0, 500)
+
+      // Move point load off-center
+      b.removePointLoad(ptLd)
+      ptLd = b.addPointLoad(3, 60)
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.p0, 60)
+      approx.equal(soln.m0, 180)
+
+      // Move anchor to other side
+      b.anchorLeft = 'free'
+      b.anchorRight = 'fixed'
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.pL, 60)
+      approx.equal(soln.mL, -420)
+
+      // Replace point load with continuous load
+      b.pointLoads = []
+      b.contLoad = x => 1
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.pL, 10)
+      approx.equal(soln.mL, -50)
+
+      // Move anchor to other side
+      b.anchorLeft = 'fixed'
+      b.anchorRight = 'free'
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.p0, 10)
+      approx.equal(soln.m0, 50)
+    })
+
+    it('should correctly calculate reactive loads with two pins', () => {
+      // Beam with one point load
+      let b = new Beam()
+      b.length = 10
+      b.moment = 10
+      b.modulus = 10
+      b.anchorLeft = 'free'
+      b.anchorRight = 'free'
+      b.addPin(0)
+      b.addPin(10)
+      b.addPointLoad(4, 100)
+      let { soln } = b.solve(50)
+      approx.equal(soln.pin0, 60)
+      approx.equal(soln.pin1, 40)
+
+      // Add a second point load
+      b.addPointLoad(5, 50)
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.pin0, 85)
+      approx.equal(soln.pin1, 65)
+
+      // Cantilevered beam
+      b.pins = [{ x: 0 }, { x: 5 }]
+      b.pointLoads = [{ x: 10, w: 100 }]
+      b.anchorLeft = 'free'
+      b.anchorRight = 'free'
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.pin0, -100)
+      approx.equal(soln.pin1, 200)
+
+      // Continuous loads
+      b.pointLoads = []
+      b.contLoad = x => 1
+      ; ({ soln } = b.solve(50))
+      approx.equal(soln.pin0, 0)
+      approx.equal(soln.pin1, 10)
     })
   })
 })

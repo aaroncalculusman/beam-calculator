@@ -25,7 +25,8 @@
   },
   "homepage": "https://github.com/aaroncalculusman/beam-calculator#readme",
   "dependencies": {
-    "esm": "^3.2.25"
+    "esm": "^3.2.25",
+    "mathjs": "^7.3.0"
   },
   "devDependencies": {
     "mocha": "^6.1.4",

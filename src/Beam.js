@@ -589,8 +589,8 @@ export default class Beam {
 
         // Calculate thetabar using Simpson's rule
         const thetabara = grid[i].thetabar
-        const thetabarab = thetabara + (mbara + 4 * mbaraab + mbarab) / 6 * (ab - a)
-        const thetabarb = thetabarab + (mbarab + 4 * mbarabb + mbarb) / 6 * (b - ab)
+        const thetabarab = thetabara + (mbara + 4 * mbaraab + mbarab) / 6 * (ab - a) / EI
+        const thetabarb = thetabarab + (mbarab + 4 * mbarabb + mbarb) / 6 * (b - ab) / EI
 
         // Calculate ybar using Simpson's rule
         const ybara = grid[i].ybar
@@ -839,10 +839,56 @@ export default class Beam {
       }
       soln.c3 = soln[c3Idx][0]
       soln.c4 = soln[c4Idx][0]
-    }
-    // TODO: Decide what exactly solve will return, and how exactly this Beam will be changed when it has solved
-    // For now, just return the grid, A, and b, which we can use to check to see if everything's working right
 
-    return { grid, A, b, soln, error }
+      // Calculate actual values of v, m, theta, and y at the grid points by adding the forces and moments from pins and anchors to the *bar variables
+
+      let pinGridIdxs = [] // Indices of grid points containing pins, encountered so far
+
+      for (let i = 0; i < grid.length; i++) {
+        if (grid[i].isPin && grid[i].relationToFeature === 1) {
+          pinGridIdxs.push(i)
+        }
+
+        let x = grid[i].x
+        grid[i].v = grid[i].vbar
+        grid[i].m = grid[i].mbar
+        grid[i].theta = grid[i].thetabar
+        grid[i].y = grid[i].ybar
+
+        grid[i].theta += soln.c3
+        grid[i].y += soln.c3 * grid[i].x + soln.c4
+
+        if (this.anchorLeft === 'fixed' && i > 0) {
+          // Apply left fixed anchor
+          grid[i].v += -soln.p0
+          grid[i].m += -soln.p0 * x + soln.m0
+          grid[i].theta += (-0.5 * soln.p0 * x ** 2 + soln.m0 * x) / EI
+          grid[i].y += (-soln.p0 * x ** 3 / 6 + soln.m0 * 0.5 * x ** 2) / EI
+        }
+        if (grid[i].isFixedAnchor && grid[i].relationToFeature === 1 && this.anchorRight === 'fixed' && i === grid.length - 1 && x === this.length) {
+          // Apply right fixed anchor
+          grid[i].v += -soln.pL
+          grid[i].m += soln.mL
+        }
+
+        for (let k = 0; k < pinGridIdxs.length; k++) {
+          let j = pinGridIdxs[k]
+          let pj = soln[`pin${k}`]
+          let pinx = grid[j].x
+          grid[i].v -= pj
+          grid[i].m -= pj * (x - pinx)
+          grid[i].theta -= pj * 0.5 * (x - pinx) ** 2 / EI
+          grid[i].y -= pj * Math.pow(x - pinx, 3) / EI / 6
+        }
+      }
+
+      this.soln = soln
+    }
+    this.grid = grid
+    this.error = error
+    this._isSolved = true
+
+    // TODO: what exactly solve will return, and how exactly this Beam will be changed when it has solved
+    // For now, just return the grid, A, and b, which we can use to check to see if everything's working right
   }
 }

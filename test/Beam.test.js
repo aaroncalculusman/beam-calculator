@@ -679,12 +679,12 @@ describe('beam', () => {
       b.length = 10
       b.moment = 1
       b.modulus = 1
-      let { grid } = b.solve(5)
-      assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 0, 0, 0])
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 0, 0])
-      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 0, 0])
-      assert.deepStrictEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 0, 0])
+      b.solve(5)
+      assert.deepStrictEqual(b.grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
+      assert.deepStrictEqual(b.grid.map(g => g.vbar), [0, 0, 0, 0, 0, 0])
+      assert.deepStrictEqual(b.grid.map(g => g.mbar), [0, 0, 0, 0, 0, 0])
+      assert.deepStrictEqual(b.grid.map(g => g.thetabar), [0, 0, 0, 0, 0, 0])
+      assert.deepStrictEqual(b.grid.map(g => g.ybar), [0, 0, 0, 0, 0, 0])
       // thetabar
       // ybar
 
@@ -692,74 +692,74 @@ describe('beam', () => {
       b.length = 10
       b.moment = 1
       b.modulus = 1
-      b.contLoad = x => 3;
-      ({ grid } = b.solve(5))
-      assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 6, 12, 18, 24, 30]) // 3 * x
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 6, 24, 54, 96, 150]) // 3 * x^2/2
-      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 4, 32, 108, 256, 500]) // 3 * x^3/6
-      assert.deepStrictEqual(grid.map(g => g.ybar), [0, 2, 32, 162, 512, 1250]) // 3 * x^4/24
+      b.contLoad = () => 3
+      b.solve(5)
+      assert.deepStrictEqual(b.grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
+      assert.deepStrictEqual(b.grid.map(g => g.vbar), [0, 6, 12, 18, 24, 30]) // 3 * x
+      assert.deepStrictEqual(b.grid.map(g => g.mbar), [0, 6, 24, 54, 96, 150]) // 3 * x^2/2
+      assert.deepStrictEqual(b.grid.map(g => g.thetabar), [0, 4, 32, 108, 256, 500]) // 3 * x^3/6
+      assert.deepStrictEqual(b.grid.map(g => g.ybar), [0, 2, 32, 162, 512, 1250]) // 3 * x^4/24
 
       // This will not be an exact answer
       b = new Beam()
       b.length = 10
       b.moment = 1
       b.modulus = 1
-      b.contLoad = x => x;
-      ({ grid } = b.solve(5))
-      assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 2, 8, 18, 32, 50]) // x^2/2
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 1.375, 10.75, 36.125, 85.5, 166.875]) // x^3/6.  Exact should be [0, 1.333, 10.666, 36, 85.333, 166.666]
-      approx.deepEqual(grid.map(g => g.thetabar), [0, 0.7083, 10.8333, 54.375, 171.3333, 417.7083]) // x^4/24.  Exact should be [0, 0.666, 10.666, 54, 170.666, 416.666]
-      approx.deepEqual(grid.map(g => g.ybar), [0, 0.30555, 8.7777, 65.5833, 274.888, 836.861]) // x^5/120.  Exact should be [0, 0.2666, 8.5333, 64.8, 273.0667, 833.33]
+      b.contLoad = x => x
+      b.solve(5)
+      assert.deepStrictEqual(b.grid.map(g => g.x), [0, 2, 4, 6, 8, 10])
+      assert.deepStrictEqual(b.grid.map(g => g.vbar), [0, 2, 8, 18, 32, 50]) // x^2/2
+      assert.deepStrictEqual(b.grid.map(g => g.mbar), [0, 1.375, 10.75, 36.125, 85.5, 166.875]) // x^3/6.  Exact should be [0, 1.333, 10.666, 36, 85.333, 166.666]
+      approx.deepEqual(b.grid.map(g => g.thetabar), [0, 0.7083, 10.8333, 54.375, 171.3333, 417.7083]) // x^4/24.  Exact should be [0, 0.666, 10.666, 54, 170.666, 416.666]
+      approx.deepEqual(b.grid.map(g => g.ybar), [0, 0.30555, 8.7777, 65.5833, 274.888, 836.861]) // x^5/120.  Exact should be [0, 0.2666, 8.5333, 64.8, 273.0667, 833.33]
 
       b = new Beam()
       b.length = 10
       b.moment = 1
       b.modulus = 1
-      b.contLoad = x => x;
-      ({ grid } = b.solve(500))
-      approx.equal(grid[500].x, 10)
-      approx.equal(grid[500].vbar, 50)
-      approx.equal(grid[500].mbar, 1000 / 6) // 166.666666...
-      approx.equal(grid[500].thetabar, 10000 / 24)
-      approx.equal(grid[500].ybar, 100000 / 120)
+      b.contLoad = x => x
+      b.solve(500)
+      approx.equal(b.grid[500].x, 10)
+      approx.equal(b.grid[500].vbar, 50)
+      approx.equal(b.grid[500].mbar, 1000 / 6) // 166.666666...
+      approx.equal(b.grid[500].thetabar, 10000 / 24)
+      approx.equal(b.grid[500].ybar, 100000 / 120)
 
       b = new Beam()
       b.length = 100
       b.moment = 1
       b.modulus = 1
-      b.contLoad = x => x;
-      ({ grid } = b.solve(500))
-      approx.equal(grid[500].x, 100)
-      approx.equal(grid[500].vbar, 5000)
-      approx.equal(grid[500].mbar, 1000000 / 6)
-      approx.equal(grid[500].thetabar, 100000000 / 24)
-      approx.equal(grid[500].ybar, 10000000000 / 120)
+      b.contLoad = x => x
+      b.solve(500)
+      approx.equal(b.grid[500].x, 100)
+      approx.equal(b.grid[500].vbar, 5000)
+      approx.equal(b.grid[500].mbar, 1000000 / 6)
+      approx.equal(b.grid[500].thetabar, 100000000 / 24)
+      approx.equal(b.grid[500].ybar, 10000000000 / 120)
 
       b = new Beam()
       b.length = 10
       b.moment = 1
       b.modulus = 1
-      b.addPointLoad(5, 100);
-      ({ grid } = b.solve(5))
-      assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 5, 5, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 0, 100, 100, 100, 100])
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 0, 100, 300, 500])
-      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 0, 50, 450, 1250])
-      approx.deepEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 0, 16.6667, 450, 2083.3333])
+      b.addPointLoad(5, 100)
+      b.solve(5)
+      assert.deepStrictEqual(b.grid.map(g => g.x), [0, 2, 4, 5, 5, 6, 8, 10])
+      assert.deepStrictEqual(b.grid.map(g => g.vbar), [0, 0, 0, 0, 100, 100, 100, 100])
+      assert.deepStrictEqual(b.grid.map(g => g.mbar), [0, 0, 0, 0, 0, 100, 300, 500])
+      assert.deepStrictEqual(b.grid.map(g => g.thetabar), [0, 0, 0, 0, 0, 50, 450, 1250])
+      approx.deepEqual(b.grid.map(g => g.ybar), [0, 0, 0, 0, 0, 16.6667, 450, 2083.3333])
 
       b = new Beam()
       b.length = 10
       b.moment = 1
       b.modulus = 1
-      b.addPointLoad(4, 100);
-      ({ grid } = b.solve(5))
-      assert.deepStrictEqual(grid.map(g => g.x), [0, 2, 4, 4, 6, 8, 10])
-      assert.deepStrictEqual(grid.map(g => g.vbar), [0, 0, 0, 100, 100, 100, 100])
-      assert.deepStrictEqual(grid.map(g => g.mbar), [0, 0, 0, 0, 200, 400, 600])
-      assert.deepStrictEqual(grid.map(g => g.thetabar), [0, 0, 0, 0, 200, 800, 1800])
-      approx.deepEqual(grid.map(g => g.ybar), [0, 0, 0, 0, 133.3333, 1066.6667, 3600])
+      b.addPointLoad(4, 100)
+      b.solve(5)
+      assert.deepStrictEqual(b.grid.map(g => g.x), [0, 2, 4, 4, 6, 8, 10])
+      assert.deepStrictEqual(b.grid.map(g => g.vbar), [0, 0, 0, 100, 100, 100, 100])
+      assert.deepStrictEqual(b.grid.map(g => g.mbar), [0, 0, 0, 0, 200, 400, 600])
+      assert.deepStrictEqual(b.grid.map(g => g.thetabar), [0, 0, 0, 0, 200, 800, 1800])
+      approx.deepEqual(b.grid.map(g => g.ybar), [0, 0, 0, 0, 133.3333, 1066.6667, 3600])
     })
 
     it('should correctly calculate reactive loads and moments with single fixed anchor', () => {
@@ -771,37 +771,37 @@ describe('beam', () => {
       b.anchorLeft = 'fixed'
       b.anchorRight = 'free'
       let ptLd = b.addPointLoad(5, 100)
-      let { soln } = b.solve(50)
-      approx.equal(soln.p0, 100)
-      approx.equal(soln.m0, 500)
+      b.solve(50)
+      approx.equal(b.soln.p0, 100)
+      approx.equal(b.soln.m0, 500)
 
       // Move point load off-center
       b.removePointLoad(ptLd)
       ptLd = b.addPointLoad(3, 60)
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.p0, 60)
-      approx.equal(soln.m0, 180)
+      b.solve(50)
+      approx.equal(b.soln.p0, 60)
+      approx.equal(b.soln.m0, 180)
 
       // Move anchor to other side
       b.anchorLeft = 'free'
       b.anchorRight = 'fixed'
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.pL, 60)
-      approx.equal(soln.mL, -420)
+      b.solve(50)
+      approx.equal(b.soln.pL, 60)
+      approx.equal(b.soln.mL, -420)
 
       // Replace point load with continuous load
       b.pointLoads = []
       b.contLoad = x => 1
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.pL, 10)
-      approx.equal(soln.mL, -50)
+      b.solve(50)
+      approx.equal(b.soln.pL, 10)
+      approx.equal(b.soln.mL, -50)
 
       // Move anchor to other side
       b.anchorLeft = 'fixed'
       b.anchorRight = 'free'
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.p0, 10)
-      approx.equal(soln.m0, 50)
+      b.solve(50)
+      approx.equal(b.soln.p0, 10)
+      approx.equal(b.soln.m0, 50)
     })
 
     it('should correctly calculate reactive loads with two pins', () => {
@@ -815,31 +815,85 @@ describe('beam', () => {
       b.addPin(0)
       b.addPin(10)
       b.addPointLoad(4, 100)
-      let { soln } = b.solve(50)
-      approx.equal(soln.pin0, 60)
-      approx.equal(soln.pin1, 40)
+      b.solve(50)
+      approx.equal(b.soln.pin0, 60)
+      approx.equal(b.soln.pin1, 40)
 
       // Add a second point load
       b.addPointLoad(5, 50)
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.pin0, 85)
-      approx.equal(soln.pin1, 65)
+      b.solve(50)
+      approx.equal(b.soln.pin0, 85)
+      approx.equal(b.soln.pin1, 65)
 
       // Cantilevered beam
       b.pins = [{ x: 0 }, { x: 5 }]
       b.pointLoads = [{ x: 10, w: 100 }]
       b.anchorLeft = 'free'
       b.anchorRight = 'free'
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.pin0, -100)
-      approx.equal(soln.pin1, 200)
+      b.solve(50)
+      approx.equal(b.soln.pin0, -100)
+      approx.equal(b.soln.pin1, 200)
 
       // Continuous loads
       b.pointLoads = []
       b.contLoad = x => 1
-      ; ({ soln } = b.solve(50))
-      approx.equal(soln.pin0, 0)
-      approx.equal(soln.pin1, 10)
+      b.solve(50)
+      approx.equal(b.soln.pin0, 0)
+      approx.equal(b.soln.pin1, 10)
+    })
+
+    it('calculated values should satisfy boundary conditions', () => {
+      let b = new Beam()
+      b.length = 10
+      b.moment = 3
+      b.modulus = 3
+      b.anchorLeft = 'free'
+      b.anchorRight = 'free'
+      b.addPin(4)
+      b.addPin(6)
+      b.addPointLoad(2, 1)
+      b.addPointLoad(5, 2)
+      b.addPointLoad(8, 1)
+      b.solve(5)
+      approx.equal(b.grid[0].v, 0)
+      approx.equal(b.grid[0].m, 0)
+      approx.equal(b.grid[b.grid.length - 1].v, 0)
+      approx.equal(b.grid[b.grid.length - 1].m, 0)
+
+      b.anchorLeft = 'fixed'
+      b.anchorRight = 'fixed'
+      b.pins = []
+      b.solve(20)
+      approx.equal(b.grid[0].v, 0)
+      approx.equal(b.grid[0].m, 0)
+      approx.equal(b.grid[0].theta, 0)
+      approx.equal(b.grid[0].y, 0)
+      approx.equal(b.grid[b.grid.length - 1].v, 0)
+      approx.equal(b.grid[b.grid.length - 1].m, 0)
+      approx.equal(b.grid[b.grid.length - 1].theta, 0)
+      approx.equal(b.grid[b.grid.length - 1].y, 0)
+
+      b.anchorLeft = 'free'
+      b.anchorRight = 'fixed'
+      b.pins = []
+      b.solve(20)
+      approx.equal(b.grid[0].v, 0)
+      approx.equal(b.grid[0].m, 0)
+      approx.equal(b.grid[b.grid.length - 1].v, 0)
+      approx.equal(b.grid[b.grid.length - 1].m, 0)
+      approx.equal(b.grid[b.grid.length - 1].theta, 0)
+      approx.equal(b.grid[b.grid.length - 1].y, 0)
+
+      b.anchorLeft = 'fixed'
+      b.anchorRight = 'free'
+      b.pins = []
+      b.solve(20)
+      approx.equal(b.grid[0].v, 0)
+      approx.equal(b.grid[0].m, 0)
+      approx.equal(b.grid[0].theta, 0)
+      approx.equal(b.grid[0].y, 0)
+      approx.equal(b.grid[b.grid.length - 1].v, 0)
+      approx.equal(b.grid[b.grid.length - 1].m, 0)
     })
   })
 })

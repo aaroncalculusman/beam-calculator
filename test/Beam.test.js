@@ -895,5 +895,49 @@ describe('beam', () => {
       approx.equal(b.grid[b.grid.length - 1].v, 0)
       approx.equal(b.grid[b.grid.length - 1].m, 0)
     })
+
+    it('should correctly calculate deflection in simply supported beam with uniform load', () => {
+      let b = new Beam()
+      b.length = 5
+      b.modulus = 20
+      b.moment = 30
+      b.anchorLeft = 'free'
+      b.anchorRight = 'free'
+      b.addPin(0)
+      b.addPin(b.length)
+      b.contLoad = () => -4
+
+      // Exact solution:
+      // y(x) = -w x / (24 E I) * (x^3 - 2 L x^2 + L^3)
+
+      b.solve(10)
+      approx.equal(b.grid[0].y, 0)
+      approx.equal(b.grid[2].y, -0.01703125)
+      approx.equal(b.grid[4].y, -0.04411458333333334)
+      approx.equal(b.grid[6].y, -0.054253472222222224)
+      approx.equal(b.grid[8].y, -0.04411458333333334)
+      approx.equal(b.grid[10].y, -0.01703125)
+      approx.equal(b.grid[12].y, 0)
+    })
+
+    it('should correctly calculate deflection in simply supported beam with point load', () => {
+      let b = new Beam()
+      b.length = 5
+      b.modulus = 20
+      b.moment = 30
+      b.anchorLeft = 'free'
+      b.anchorRight = 'free'
+      b.addPin(0)
+      b.addPin(b.length)
+      b.addPointLoad(2.5, -40)
+
+      // Exact solution:
+      // y(L/2) = p L^3 / (48 E I)
+
+      b.solve(10)
+      approx.equal(b.grid[0].y, 0)
+      approx.equal(b.grid[6].y, -0.1736111111111111)
+      approx.equal(b.grid[12].y, 0)
+    })
   })
 })
